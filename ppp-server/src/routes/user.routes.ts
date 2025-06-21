@@ -19,7 +19,7 @@ userRouter.post('/add-jsprs', verifyJwt, adminAccess, userController.addJsprs);
 userRouter.get('/jsprs', userController.getJsprs);
 userRouter.post('/change-password', verifyJwt, userController.changePassword);
 userRouter.put('/edit-profile', verifyJwt, userController.editProfile);
-userRouter.post('/update-warnigs',verifyJwt,userController.updateWarnings);
+userRouter.post('/update-warnings',verifyJwt,userController.updateWarnings);
 
 
 export default userRouter;

@@ -476,32 +476,36 @@ class UserController {
         }
     });
 
-    
+    public updateWarnings = asyncHandler(async (req: CustomRequest, res: Response) => {
+        const { regno, aptitude_test_id, warnings } = req.body;
 
-    public updateWarnings = asyncHandler(async (req: CustomRequest , res : Response) => {
-            const { regno, aptitude_test_id, warnings } = req.body;
+        if (!regno || !aptitude_test_id || warnings === undefined) {
+            return res.status(400).json(new ApiError("Missing required fields", 400));
+        }
 
-  try {
-    const client = await dbPool.connect();
-    const result = await client.query(
-      `
-      UPDATE user_responses
-      SET warnings = $1
-      WHERE regno = $2 AND aptitude_test_id = $3
-      `,
-      [warnings, regno, aptitude_test_id]
-    );
+        const client = await dbPool.connect();
+        try {
+            const result = await client.query(
+                `
+                UPDATE user_responses
+                SET warnings = $1
+                WHERE regno = $2 AND aptitude_test_id = $3
+                `,
+                [warnings, regno, aptitude_test_id]
+            );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ message: "User response not found" });
-    }
+            if (result.rowCount === 0) {
+                return res.status(404).json(new ApiError("User response not found", 404));
+            }
 
-    res.status(200).json({ message: "Warnings updated successfully" });
-  } catch (error) {
-    console.error("Failed to update warnings:", error);
-    res.status(500).json({ error: "Failed to update warnings" });
-  }; 
-});
+            return res.status(200).json(new ApiResponse("Warnings updated successfully", 200, { warnings }));
+        } catch (error) {
+            console.error("Failed to update warnings:", error);
+            return res.status(500).json(new ApiError("Failed to update warnings", 500));
+        } finally {
+            client.release();
+        }
+    });
 
 }
 
