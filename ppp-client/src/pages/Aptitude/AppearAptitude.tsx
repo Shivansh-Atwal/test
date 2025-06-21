@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import aptitudeService from "@/api/services/aptitude.service";
 import { Button } from "@/shadcn/ui/button";
@@ -779,7 +779,7 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
         {/* Main content area */}
         <div className="pt-20 pb-24 px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto">
-            {getCurrentQuestions().map((question, idx) => (
+            {getCurrentQuestions().map((question) => (
               <div key={question.id} className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
                 {/* Question Header */}
                 <div className="mb-6">
@@ -1015,7 +1015,7 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
                         description: "You can now proceed with your test.",
                       });
                     })
-                    .catch((err) => {
+                    .catch(() => {
                       setIsCameraOn(false);
                       toast({
                         title: "Camera Access Denied",
