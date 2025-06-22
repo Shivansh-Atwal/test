@@ -24,7 +24,7 @@ import { TRADES } from "@/constants";
 import { ApiResponse } from "@/types/Api";
 import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
-import CameraCapture  from '../../helpers/CameraCapture';
+// import CameraCapture  from '../../helpers/CameraCapture';
 
 const AppearAptitude = () => {
   const [regNo, setRegNo] = useState("");
@@ -732,7 +732,7 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
   if (questions.length > 0) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <CameraCapture contestId={String(aptiId)} userId={regNo} />
+        {/* <CameraCapture contestId={String(aptiId)} userId={regNo} /> */}
         
         {/* Header with timer and warnings */}
         <div className="fixed top-0 left-0 right-0 bg-white shadow-md z-40 p-3">
