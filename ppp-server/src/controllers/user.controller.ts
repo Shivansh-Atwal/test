@@ -275,19 +275,33 @@ class UserController {
                     unnest(q.topic_tags) AS topic, -- Break down by individual topic
                     COUNT(q.id) AS total_questions, -- Total questions available for the topic
                     COUNT(parsed_data.question_id) AS total_solved, -- Total questions solved by the user
-                    SUM(CASE WHEN q.correct_option = CAST(parsed_data.selected_option AS INT) THEN 1 ELSE 0 END) AS correct_answers, -- Correct answers
+                    SUM(CASE WHEN 
+                        (answers_array->>'selected_options' IS NOT NULL AND 
+                         (answers_array->'selected_options')::int[] && q.correct_option) OR
+                        (answers_array->>'selected_option' IS NOT NULL AND 
+                         CAST(answers_array->>'selected_option' AS INT) = ANY(q.correct_option))
+                    THEN 1 ELSE 0 END) AS correct_answers, -- Correct answers
                     COUNT(parsed_data.question_id) - 
-                    SUM(CASE WHEN q.correct_option = CAST(parsed_data.selected_option AS INT) THEN 1 ELSE 0 END) AS incorrect_answers, -- Incorrect answers
+                    SUM(CASE WHEN 
+                        (answers_array->>'selected_options' IS NOT NULL AND 
+                         (answers_array->'selected_options')::int[] && q.correct_option) OR
+                        (answers_array->>'selected_option' IS NOT NULL AND 
+                         CAST(answers_array->>'selected_option' AS INT) = ANY(q.correct_option))
+                    THEN 1 ELSE 0 END) AS incorrect_answers, -- Incorrect answers
                     ROUND(
-                        SUM(CASE WHEN q.correct_option = CAST(parsed_data.selected_option AS INT) THEN 1 ELSE 0 END)::DECIMAL * 100 / NULLIF(COUNT(parsed_data.question_id), 0),
+                        SUM(CASE WHEN 
+                            (answers_array->>'selected_options' IS NOT NULL AND 
+                             (answers_array->'selected_options')::int[] && q.correct_option) OR
+                            (answers_array->>'selected_option' IS NOT NULL AND 
+                             CAST(answers_array->>'selected_option' AS INT) = ANY(q.correct_option))
+                        THEN 1 ELSE 0 END)::DECIMAL * 100 / NULLIF(COUNT(parsed_data.question_id), 0),
                         2
                     ) AS accuracy -- Accuracy percentage
                 FROM user_responses ur
                 CROSS JOIN LATERAL jsonb_array_elements(ur.answers::jsonb) AS answers_array
                 CROSS JOIN LATERAL (
                     SELECT 
-                        (answers_array->>'question_id')::INT AS question_id,
-                        (answers_array->>'selected_option')::INT AS selected_option
+                        (answers_array->>'question_id')::INT AS question_id
                 ) AS parsed_data
                 JOIN questions q ON q.id = parsed_data.question_id
                 WHERE ur.regno = $1 -- Filter by user's registration number

@@ -11,7 +11,7 @@ interface Question {
   id: number;
   description: string;
   options: string[];
-  correct_option: number;
+  correct_option: number[];
   format: "text" | "img";
   question_type: string;
   marks: number;
@@ -19,7 +19,7 @@ interface Question {
 
 interface QuestionResponse {
   question: Question;
-  answer: number;
+  answers: number[];
   explanation?: string;
   isExplaining?: boolean;
 }
@@ -119,7 +119,7 @@ const AptitudeResult = () => {
         interface ApiResponseData {
           responses: Array<{
             question: Question;
-            answer: number;
+            answers: number[];
             explanation?: string;
           }>;
           rank: number;
@@ -216,7 +216,7 @@ const AptitudeResult = () => {
             <div className="flex justify-between mb-4">
               <h3 className="text-lg font-semibold">Question {index + 1}</h3>
               <div className="flex items-center gap-2">
-                {response.answer === response.question.correct_option ? (
+                {response.question.correct_option && response.answers.some(answer => response.question.correct_option.includes(answer)) ? (
                   <span className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-1 rounded">
                     <Check className="h-4 w-4" />
                     Correct
@@ -247,10 +247,10 @@ const AptitudeResult = () => {
                 <div
                   key={optionIndex + 1}
                   className={`p-3 rounded-lg border ${
-                    optionIndex + 1 === response.question.correct_option
+                    response.question.correct_option && response.question.correct_option.includes(optionIndex + 1)
                       ? "bg-green-50 border-green-200"
-                      : optionIndex + 1 === response.answer &&
-                        optionIndex + 1 !== response.question.correct_option
+                      : response.answers.includes(optionIndex + 1) &&
+                        response.question.correct_option && !response.question.correct_option.includes(optionIndex + 1)
                       ? "bg-red-50 border-red-200"
                       : "bg-gray-50"
                   }`}
@@ -260,7 +260,7 @@ const AptitudeResult = () => {
               ))}
             </div>
 
-            {response.answer !== response.question.correct_option && (
+            {response.question.correct_option && !response.answers.some(answer => response.question.correct_option.includes(answer)) && (
               <div className="mt-4">
                 {!response.explanation && !response.isExplaining && (
                   <button

@@ -18,6 +18,8 @@ import {
 import { Label } from "@/shadcn/ui/label";
 import { Textarea } from "@/shadcn/ui/textarea";
 import { QUESTION_TYPES } from "@/constants";
+import { Checkbox } from "@/shadcn/ui/checkbox";
+import { Plus, Minus } from "lucide-react";
 
 import questionService from "@/api/services/question.service";
 import { useState } from "react";
@@ -35,7 +37,7 @@ const AddQuestionDialog: React.FC = () => {
     question_type: string;
     difficulty_level: number;
     options: string[];
-    correct_option: number;
+    correct_option: number[];
     format: string;
     img: File | null;
   }>({
@@ -43,8 +45,8 @@ const AddQuestionDialog: React.FC = () => {
     topic_tags: "",
     question_type: "GENERAL",
     difficulty_level: 1,
-    options: ["", "", "", ""],
-    correct_option: 0,
+    options: ["", ""],
+    correct_option: [],
     format: "text",
     img: null,
   });
@@ -87,8 +89,7 @@ const AddQuestionDialog: React.FC = () => {
     if (
       !newQuestion.topic_tags ||
       !newQuestion.options.every((option) => option.trim()) ||
-      newQuestion.correct_option < 0 ||
-      newQuestion.correct_option > newQuestion.options.length ||
+      newQuestion.correct_option.length === 0 ||
       (newQuestion.format === "text" && !newQuestion.description) ||
       (newQuestion.format === "img" && !newQuestion.img) ||
       !newQuestion.question_type ||
@@ -96,7 +97,7 @@ const AddQuestionDialog: React.FC = () => {
     ) {
       toast({
         title: "Error",
-        description: "Please fill all the fields",
+        description: "Please fill all the fields and select at least one correct answer",
         variant: "destructive",
       });
       return;
@@ -111,6 +112,11 @@ const AddQuestionDialog: React.FC = () => {
         (key) => {
           if (key === "img" && newQuestion.img) {
             formData.append("img", newQuestion.img);
+          } else if (key === "correct_option") {
+            // Handle correct_option array specially - send as JSON
+            const correctOptionJson = JSON.stringify(newQuestion[key]);
+            console.log('Sending correct_option as JSON:', correctOptionJson);
+            formData.append(key, correctOptionJson);
           } else {
             if (typeof newQuestion[key] === "string")
               formData.append(key, newQuestion[key].trim());
@@ -121,6 +127,11 @@ const AddQuestionDialog: React.FC = () => {
         }
       );
 
+      console.log('FormData contents:');
+      for (let [key, value] of formData.entries()) {
+        console.log(key, ':', value);
+      }
+
       // API call to add question
       const res = await questionService.addQuestion(formData);
       console.log(res);
@@ -130,8 +141,8 @@ const AddQuestionDialog: React.FC = () => {
         topic_tags: "",
         question_type: "GENERAL",
         difficulty_level: 1,
-        options: ["", "", "", ""],
-        correct_option: 0,
+        options: ["", ""],
+        correct_option: [],
         format: "text",
         img: null,
       });
@@ -151,6 +162,54 @@ const AddQuestionDialog: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Function to add a new option
+  const addOption = () => {
+    setNewQuestion({
+      ...newQuestion,
+      options: [...newQuestion.options, ""],
+    });
+  };
+
+  // Function to remove an option
+  const removeOption = (index: number) => {
+    if (newQuestion.options.length <= 2) {
+      toast({
+        title: "Error",
+        description: "At least 2 options are required",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const newOptions = newQuestion.options.filter((_, i) => i !== index);
+    const newCorrectOptions = newQuestion.correct_option
+      .filter(optionIndex => optionIndex !== index + 1)
+      .map(optionIndex => optionIndex > index + 1 ? optionIndex - 1 : optionIndex);
+    
+    setNewQuestion({
+      ...newQuestion,
+      options: newOptions,
+      correct_option: newCorrectOptions,
+    });
+  };
+
+  // Function to handle correct answer selection
+  const handleCorrectOptionChange = (optionIndex: number, checked: boolean) => {
+    const optionNumber = optionIndex + 1; // Convert to 1-based indexing
+    let newCorrectOptions: number[];
+    
+    if (checked) {
+      newCorrectOptions = [...newQuestion.correct_option, optionNumber];
+    } else {
+      newCorrectOptions = newQuestion.correct_option.filter(opt => opt !== optionNumber);
+    }
+    
+    setNewQuestion({
+      ...newQuestion,
+      correct_option: newCorrectOptions,
+    });
   };
 
   return (
@@ -339,9 +398,34 @@ const AddQuestionDialog: React.FC = () => {
 
             {newQuestion.options.map((option, index) => (
               <div key={index} className="grid gap-2">
-                <Label htmlFor={`option-${index}`} className="text-foreground">
-                  Option {index + 1}
-                </Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor={`option-${index}`} className="text-foreground flex-1">
+                    Option {index + 1}
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id={`correct-${index}`}
+                      checked={newQuestion.correct_option.includes(index + 1)}
+                      onCheckedChange={(checked) => 
+                        handleCorrectOptionChange(index, checked as boolean)
+                      }
+                    />
+                    <Label htmlFor={`correct-${index}`} className="text-sm">
+                      Correct
+                    </Label>
+                    {newQuestion.options.length > 2 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeOption(index)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
                 <Input
                   id={`option-${index}`}
                   placeholder={`Option ${index + 1}`}
@@ -355,31 +439,23 @@ const AddQuestionDialog: React.FC = () => {
               </div>
             ))}
 
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addOption}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Option
+            </Button>
+
             <div className="grid gap-2">
-              <Label htmlFor="correct-option" className="text-foreground">
-                Correct Option
+              <Label className="text-foreground">
+                Selected Correct Answers: {newQuestion.correct_option.length > 0 
+                  ? newQuestion.correct_option.map(opt => `Option ${opt}`).join(", ")
+                  : "None selected"
+                }
               </Label>
-              <Select
-                value={String(newQuestion.correct_option)}
-                onValueChange={(value) => {
-                  console.log(value);
-                  setNewQuestion({
-                    ...newQuestion,
-                    correct_option: parseInt(value),
-                  });
-                }}
-              >
-                <SelectTrigger id="correct-option">
-                  <SelectValue placeholder="Correct Option" />
-                </SelectTrigger>
-                <SelectContent>
-                  {newQuestion.options.map((_, index) => (
-                    <SelectItem key={index + 1} value={String(index + 1)}>
-                      Option {index + 1}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <Button onClick={handleAddQuestion} disabled={isSubmitting}>

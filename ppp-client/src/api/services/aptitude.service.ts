@@ -50,7 +50,7 @@ class AptitudeService {
 
     public submitAptitude(userData: { regno: string, trade: string }, aptitudeId: number, answers: {
         question_id: number;
-        selected_option: number;
+        selected_options: number[];
     }[]) {
         return axiosAuthInstance.post('/aptitude/submit/' + aptitudeId, { userData, answers }).then(res => res.data).catch(err => (Promise.reject(err.response.data)));
     }

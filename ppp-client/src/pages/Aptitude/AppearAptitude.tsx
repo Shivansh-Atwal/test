@@ -46,7 +46,7 @@ const AppearAptitude = () => {
 
   interface Answer {
     question_id: number;
-    selected_option: number;
+    selected_options: number[];
   }
 
   const [answers, setAnswers] = useState<Answer[]>([]);
@@ -89,32 +89,58 @@ const AppearAptitude = () => {
       return;
     }
 
+    setLoading(true);
+
     try {
-      setLoading(true);
       const response: ApiResponse = await aptitudeService.getAptitudeForUser(
-        { trade: tradeToUse, regno: regNoToUse },
+        { regno: regNoToUse, trade: tradeToUse },
         aptiId
       );
 
-      // Save to sessionStorage
-      sessionStorage.setItem(`aptitude-regno-${aptiId}`, regNoToUse);
-      sessionStorage.setItem(`aptitude-trade-${aptiId}`, tradeToUse);
-
-      if (typeof response.data === "string") {
-        response.data = JSON.parse(response.data);
+      console.log("Quiz response:", response.data);
+      
+      // Validate question data
+      if (response.data.questions && Array.isArray(response.data.questions)) {
+        response.data.questions.forEach((question: any, index: number) => {
+          console.log(`Question ${index + 1}:`, {
+            id: question.id,
+            description: question.description,
+            options: question.options,
+            correct_option: question.correct_option,
+            hasCorrectOption: !!question.correct_option,
+            isArray: Array.isArray(question.correct_option)
+          });
+          
+          // Add fallback for missing correct_option
+          if (!question.correct_option) {
+            console.warn(`Question ${index + 1} has no correct_option, setting default`);
+            question.correct_option = [1]; // Default to first option
+          }
+        });
       }
 
-      const sortedQuestions = [
-        ...response.data.questions.filter((q: Question) => q.question_type === "GENERAL"),
-        ...response.data.questions.filter((q: Question) => q.question_type !== "GENERAL"),
-      ];
-
-      setQuestions(sortedQuestions);
+      setQuestions(response.data.questions);
       setAptitude(response.data.aptitude);
+
+      // Save user data to session storage
+      sessionStorage.setItem(`aptitude-regno-${aptiId}`, regNoToUse);
+      sessionStorage.setItem(`aptitude-trade-${aptiId}`, tradeToUse);
+      sessionStorage.setItem(`aptitude-start-${aptiId}`, Date.now().toString());
+
+      // Request fullscreen after quiz loads
+      setTimeout(() => {
+        requestFullscreen();
+      }, 1000);
+
+      toast({
+        title: "Success",
+        description: "Quiz loaded successfully",
+      });
     } catch (error: any) {
+      console.error("Error loading quiz:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to fetch quiz",
+        description: error.message || "Failed to load quiz",
         variant: "destructive",
       });
     } finally {
@@ -521,21 +547,21 @@ const handleViolation = async (type: string,regNo:string) => {
             // If some questions don't have answers, create complete initial state
             initialAnswers = questions.map(question => ({
               question_id: Number(question.id),
-              selected_option: 0,
+              selected_options: [],
             }));
           }
         } catch (e) {
           // If parsing fails, create new initial answers
           initialAnswers = questions.map(question => ({
             question_id: Number(question.id),
-            selected_option: 0,
+            selected_options: [],
           }));
         }
       } else {
         // If no saved answers, create new initial answers
         initialAnswers = questions.map(question => ({
           question_id: Number(question.id),
-          selected_option: 0,
+          selected_options: [],
         }));
       }
 
@@ -586,12 +612,33 @@ const handleViolation = async (type: string,regNo:string) => {
   }, [questions, cheatingAttempts]);
 
   const handleAnswerChange = (questionId: number, selectedOption: number) => {
+    console.log('handleAnswerChange called:', { questionId, selectedOption });
     setAnswers(prevAnswers => {
-      const newAnswers = prevAnswers.map(answer =>
-        answer.question_id === questionId
-          ? { ...answer, selected_option: selectedOption + 1 }
-          : answer
-      );
+      const newAnswers = prevAnswers.map(answer => {
+        if (answer.question_id === questionId) {
+          const currentOptions = answer.selected_options || []; // Add fallback
+          const optionIndex = currentOptions.indexOf(selectedOption);
+          
+          if (optionIndex > -1) {
+            // Remove option if already selected
+            const updatedOptions = currentOptions.filter((_, index) => index !== optionIndex);
+            console.log('Removing option:', { questionId, selectedOption, updatedOptions });
+            return { 
+              ...answer, 
+              selected_options: updatedOptions
+            };
+          } else {
+            // Add option if not selected
+            const updatedOptions = [...currentOptions, selectedOption];
+            console.log('Adding option:', { questionId, selectedOption, updatedOptions });
+            return { 
+              ...answer, 
+              selected_options: updatedOptions
+            };
+          }
+        }
+        return answer;
+      });
 
       // Save to session storage immediately after update
       if (aptitude?.id) {
@@ -628,7 +675,7 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
     }
 
     if (!autoSubmit) {
-      const hasAnswers = answers.some((answer) => answer.selected_option !== 0);
+      const hasAnswers = answers.some((answer) => answer.selected_options.length > 0);
       if (!hasAnswers) {
         toast({
           title: "Error",
@@ -810,25 +857,28 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
 
                 {/* Options */}
                 <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-gray-700 mb-4">Select your answer:</h3>
+                  <h3 className="text-sm font-medium text-gray-700 mb-4">
+                    Select all correct answers (you can choose multiple):
+                  </h3>
                   {question.options.map((option, optIdx) => {
                     const savedAnswer = answers.find(
                       (a) => a.question_id === question.id
                     );
+                    const selectedOptions = savedAnswer?.selected_options || []; // Add fallback
                     return (
                       <label
                         key={optIdx}
                         className={`flex items-start space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-50 ${
-                          savedAnswer?.selected_option === optIdx + 1
+                          selectedOptions.includes(optIdx)
                             ? 'border-blue-500 bg-blue-50'
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
                         <input
-                          type="radio"
+                          type="checkbox"
                           name={`q${question.id}`}
                           className="mt-1 w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                          checked={savedAnswer?.selected_option === optIdx + 1}
+                          checked={selectedOptions.includes(optIdx)}
                           onChange={() =>
                             handleAnswerChange(Number(question.id), optIdx)
                           }

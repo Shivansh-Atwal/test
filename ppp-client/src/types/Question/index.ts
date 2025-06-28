@@ -1,4 +1,3 @@
-
 interface Question {
     id?: number;
     description: string;
@@ -7,7 +6,7 @@ interface Question {
     last_used?: string;
     difficulty_level: number;
     options: string[];
-    correct_option: number;
+    correct_option: number[];
     format: string;
   }
 

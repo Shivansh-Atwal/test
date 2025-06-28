@@ -23,7 +23,7 @@ interface Question {
   last_used: string | null;
   difficulty_level: number;
   options: string[];
-  correct_option: number;
+  correct_option: number[];
 }
 
 interface Aptitude {
@@ -150,7 +150,7 @@ const AptitudeQuestions = () => {
                 <div
                   key={optionIndex}
                   className={`p-3 rounded-lg border ${
-                    optionIndex+1 === question.correct_option
+                    question.correct_option.includes(optionIndex + 1)
                       ? "bg-green-50 border-green-200"
                       : "bg-gray-50"
                   }`}

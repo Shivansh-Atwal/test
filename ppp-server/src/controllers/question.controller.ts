@@ -10,7 +10,7 @@ import test from "node:test";
 interface Question {
     description: string,
     options: any,
-    correct_option: number,
+    correct_option: string | number[],
     difficulty_level: number,
     question_type: QUESTION_TYPES,
     format: string,
@@ -34,6 +34,27 @@ class QuestionController {
 
         question.options = question.options.split('/|/');
         question.topic_tags = question.topic_tags.split(',');
+        
+        // Handle correct_option as array
+        if (typeof question.correct_option === 'string') {
+            console.log('Received correct_option as string:', question.correct_option);
+            try {
+                // Try to parse as JSON first (for new format)
+                const parsed = JSON.parse(question.correct_option);
+                question.correct_option = Array.isArray(parsed) ? parsed : [parsed];
+                console.log('Parsed as JSON:', question.correct_option);
+            } catch {
+                // Fallback to old format with /|/ separator
+                const correctOptionString = question.correct_option as string;
+                question.correct_option = correctOptionString.split('/|/').map(Number);
+                console.log('Parsed with separator:', question.correct_option);
+            }
+        } else if (!Array.isArray(question.correct_option)) {
+            question.correct_option = [question.correct_option];
+            console.log('Converted to array:', question.correct_option);
+        } else {
+            console.log('Already an array:', question.correct_option);
+        }
 
         if (question.format === 'img') {
             const img = req.file?.path;
@@ -155,7 +176,7 @@ class QuestionController {
             Please explain the following question and answer:
             Question: ${question.description}
             Options: ${question.options}
-            Correct Option: ${question.correct_option}
+            Correct Options: ${Array.isArray(question.correct_option) ? question.correct_option.join(', ') : question.correct_option}
             `;
 
             const stream = await openai.chat.completions.create({

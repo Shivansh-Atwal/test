@@ -17,7 +17,7 @@ interface Aptitude {
 
 interface Answer {
     question_id: number,
-    selected_option: string,
+    selected_options: number[],
 }
 
 class AptitudeController {
@@ -266,7 +266,8 @@ class AptitudeController {
                     q.last_used,
                     q.difficulty_level,
                     q.format,
-                    q.options
+                    q.options,
+                    q.correct_option
                  FROM 
                     questions q
                  INNER JOIN 
@@ -276,9 +277,28 @@ class AptitudeController {
                 [aptitudeId, userData.trade]
             );
 
+            // Validate and fix question data before sending to frontend
+            const validatedQuestions = rows.map((question: any) => {
+                // Ensure correct_option is always a valid array
+                if (!question.correct_option || 
+                    !Array.isArray(question.correct_option) || 
+                    question.correct_option.length === 0) {
+                    console.warn(`Question ${question.id} has invalid correct_option:`, question.correct_option);
+                    question.correct_option = [1]; // Default to first option
+                }
+                
+                // Ensure options is always an array
+                if (!question.options || !Array.isArray(question.options)) {
+                    console.warn(`Question ${question.id} has invalid options:`, question.options);
+                    question.options = [];
+                }
+                
+                return question;
+            });
+
             const response = {
                 aptitude: apti,
-                questions: rows
+                questions: validatedQuestions
             }
 
             await redisClient.set(`apti-${aptitudeId}:${userData.trade}`, JSON.stringify(response), { EX: 600 });
@@ -379,7 +399,11 @@ class AptitudeController {
                     `SELECT correct_option FROM questions WHERE id = $1`,
                     [answer.question_id]
                 );
-                if (questionRows[0].correct_option === answer.selected_option) {
+                // Check if any of the selected options match any of the correct options
+                const hasCorrectAnswer = answer.selected_options.some(selectedOption => 
+                    questionRows[0].correct_option.includes(selectedOption)
+                );
+                if (hasCorrectAnswer) {
                     score++;
                 }
             }
@@ -541,11 +565,15 @@ class AptitudeController {
 
             // Prepare the response with questions and user's selected answers
             const response = answers.map((ans) => {
-                userMarks += questionRows.rows.find((q: any) => q.id === ans.question_id).correct_option === ans.selected_option ? 1 : 0;
+                // Check if any of the selected options match any of the correct options
                 const question = questionRows.rows.find((q: any) => q.id === ans.question_id);
+                const hasCorrectAnswer = ans.selected_options.some(selectedOption => 
+                    question.correct_option.includes(selectedOption)
+                );
+                userMarks += hasCorrectAnswer ? 1 : 0;
                 return {
                     question,
-                    answer: ans.selected_option,
+                    answers: ans.selected_options, // Return all selected options
                 };
             });
 

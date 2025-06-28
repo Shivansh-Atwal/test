@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS public.questions
     last_used character varying(30) COLLATE pg_catalog."default",
     difficulty_level integer NOT NULL,
     options text[] COLLATE pg_catalog."default" NOT NULL,
-    correct_option integer NOT NULL,
+    correct_option integer[] NOT NULL,
     format character varying(4) COLLATE pg_catalog."default",
     CONSTRAINT questions_pkey PRIMARY KEY (id)
 );
