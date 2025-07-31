@@ -511,14 +511,18 @@ const handleViolation = async (type: string,regNo:string) => {
       const timeLeft = durationMs - elapsedTime;
       setTimeLeft(timeLeft);
 
+      let warningShown = false;
+
       const timer = setInterval(() => {
         setTimeLeft((prev) => {
           const newTime = Math.max(0, prev - 1000);
-          if (newTime <= 30000) {
+          if (newTime <= 30000 && !warningShown) {
+            warningShown = true;
             toast({
               title: "Warning",
               description: "Submit quiz now it might take some time to process",
               variant: "destructive",
+              duration: 10000,
             });
           }
           return newTime;
@@ -802,18 +806,7 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
                 Fullscreen Required
               </div>
               
-              {/* Temporary Test Button */}
-              <button
-                onClick={() => {
-                  const currentRegNo = sessionStorage.getItem(`aptitude-regno-${aptiId}`) || regNo;
-                  console.log("Manual test violation triggered");
-                  handleViolation("Manual Test", currentRegNo);
-                }}
-                className="bg-blue-500 text-white text-xs px-2 py-1 rounded-md shadow hover:bg-blue-600"
-                title="Test warning system"
-              >
-                Test Warning
-              </button>
+              
               
               {/* Timer */}
               <div className="bg-red-500 text-white text-xs sm:text-sm px-2 py-1 rounded-md shadow">

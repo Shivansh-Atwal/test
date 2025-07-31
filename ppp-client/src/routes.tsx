@@ -6,15 +6,16 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import PageNotFound from "./pages/PageNotFound";
+// import ForgotPass from "./pages/Login/ForgotPass";
 // import Dashboard from "./pages/admin/Dashboard";
 // import QuestionSet from "./pages/admin/QuestionSet";
 // import Aptitude from "./pages/admin/Aptitude";
 // import AppearAptitude from "./pages/Aptitude/AppearAptitude";
 // import AptitudeResult from "./pages/Aptitude/AptitudeResult";
 // import Aptitudes from "./pages/Aptitude/Aptitudes";
-// import ForgotPass from "./pages/Login/ForgotPass";
 
-//  import lazily
+
+// import lazily 
 
 const Dashboard = React.lazy(() => import("./pages/admin/Dashboard"));
 const QuestionSet = React.lazy(() => import("./pages/admin/QuestionSet"));
