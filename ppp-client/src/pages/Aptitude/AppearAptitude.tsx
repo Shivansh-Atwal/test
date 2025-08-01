@@ -99,25 +99,37 @@ const AppearAptitude = () => {
 
       console.log("Quiz response:", response.data);
       
-      // Validate question data
-      if (response.data.questions && Array.isArray(response.data.questions)) {
-        response.data.questions.forEach((question: any, index: number) => {
-          console.log(`Question ${index + 1}:`, {
-            id: question.id,
-            description: question.description,
-            options: question.options,
-            correct_option: question.correct_option,
-            hasCorrectOption: !!question.correct_option,
-            isArray: Array.isArray(question.correct_option)
-          });
-          
-          // Add fallback for missing correct_option
-          if (!question.correct_option) {
-            console.warn(`Question ${index + 1} has no correct_option, setting default`);
-            question.correct_option = [1]; // Default to first option
-          }
-        });
-      }
+             // Validate question data
+       if (response.data.questions && Array.isArray(response.data.questions)) {
+         response.data.questions.forEach((question: any, index: number) => {
+           console.log(`Question ${index + 1}:`, {
+             id: question.id,
+             description: question.description,
+             options: question.options,
+             correct_option: question.correct_option,
+             hasCorrectOption: !!question.correct_option,
+             isArray: Array.isArray(question.correct_option)
+           });
+           
+           // Add fallback for missing correct_option
+           if (!question.correct_option) {
+             console.warn(`Question ${index + 1} has no correct_option, setting default`);
+             question.correct_option = [1]; // Default to first option
+           }
+           
+           // Ensure correct_option is always an array
+           if (!Array.isArray(question.correct_option)) {
+             console.warn(`Question ${index + 1} has non-array correct_option, converting to array`);
+             question.correct_option = [question.correct_option].filter(Boolean);
+           }
+           
+           // Ensure options is always an array
+           if (!Array.isArray(question.options)) {
+             console.warn(`Question ${index + 1} has non-array options, setting default`);
+             question.options = ["Option 1", "Option 2", "Option 3", "Option 4"];
+           }
+         });
+       }
 
       setQuestions(response.data.questions);
       setAptitude(response.data.aptitude);
@@ -681,7 +693,7 @@ const handleViolation = async (type: string,regNo:string) => {
     
     // Find the current question to determine if it's single or multiple answer
     const currentQuestion = questions.find(q => q.id === questionId);
-    const isSingleAnswer = currentQuestion?.correct_option?.length === 1;
+    const isSingleAnswer = currentQuestion?.correct_option && Array.isArray(currentQuestion.correct_option) && currentQuestion.correct_option.length === 1;
     
     setAnswers(prevAnswers => {
       const newAnswers = prevAnswers.map(answer => {
@@ -984,53 +996,53 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
 
                                 {/* Options */}
                 <div className="space-y-3">
-                  {/* Determine if this is a single or multiple answer question */}
-                  {(() => {
-                    const isSingleAnswer = question.correct_option?.length === 1;
-                    return (
-                      <h3 className="text-sm font-medium text-gray-700 mb-4">
-                        {isSingleAnswer 
-                          ? "Select the correct answer (only one option allowed):"
-                          : "Select all correct answers (you can choose multiple):"
-                        }
-                      </h3>
-                    );
-                  })()}
-                  {question.options.map((option, optIdx) => {
-                    const savedAnswer = answers.find(
-                      (a) => a.question_id === question.id
-                    );
-                    const selectedOptions = savedAnswer?.selected_options || []; // Add fallback
-                    // Convert 0-based frontend index to 1-based backend index for comparison
-                    const backendOptionIndex = optIdx + 1;
-                    const isSingleAnswer = question.correct_option?.length === 1;
-                    
-                    return (
-                      <label
-                        key={optIdx}
-                        className={`flex items-start space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-50 ${
-                          selectedOptions.includes(backendOptionIndex)
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <input
-                          type={isSingleAnswer ? "radio" : "checkbox"}
-                          name={`q${question.id}`}
-                          className={`mt-1 w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 rounded ${
-                            isSingleAnswer ? 'rounded-full' : 'rounded'
-                          }`}
-                          checked={selectedOptions.includes(backendOptionIndex)}
-                          onChange={() =>
-                            handleAnswerChange(Number(question.id), optIdx)
-                          }
-                        />
-                        <span className="text-sm sm:text-base text-gray-800 leading-relaxed">
-                          {option}
-                        </span>
-                      </label>
-                    );
-                  })}
+                                     {/* Determine if this is a single or multiple answer question */}
+                   {(() => {
+                     const isSingleAnswer = question.correct_option && Array.isArray(question.correct_option) && question.correct_option.length === 1;
+                     return (
+                       <h3 className="text-sm font-medium text-gray-700 mb-4">
+                         {isSingleAnswer 
+                           ? "Select the correct answer (only one option allowed):"
+                           : "Select all correct answers (you can choose multiple):"
+                         }
+                       </h3>
+                     );
+                   })()}
+                                     {Array.isArray(question.options) && question.options.map((option, optIdx) => {
+                     const savedAnswer = answers.find(
+                       (a) => a.question_id === question.id
+                     );
+                     const selectedOptions = savedAnswer?.selected_options || []; // Add fallback
+                     // Convert 0-based frontend index to 1-based backend index for comparison
+                     const backendOptionIndex = optIdx + 1;
+                     const isSingleAnswer = question.correct_option && Array.isArray(question.correct_option) && question.correct_option.length === 1;
+                     
+                     return (
+                       <label
+                         key={optIdx}
+                         className={`flex items-start space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-50 ${
+                           selectedOptions.includes(backendOptionIndex)
+                             ? 'border-blue-500 bg-blue-50'
+                             : 'border-gray-200 hover:border-gray-300'
+                         }`}
+                       >
+                         <input
+                           type={isSingleAnswer ? "radio" : "checkbox"}
+                           name={`q${question.id}`}
+                           className={`mt-1 w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 rounded ${
+                             isSingleAnswer ? 'rounded-full' : 'rounded'
+                           }`}
+                           checked={selectedOptions.includes(backendOptionIndex)}
+                           onChange={() =>
+                             handleAnswerChange(Number(question.id), optIdx)
+                           }
+                         />
+                         <span className="text-sm sm:text-base text-gray-800 leading-relaxed">
+                           {option}
+                         </span>
+                       </label>
+                     );
+                   })}
                 </div>
               </div>
             ))}

@@ -6,7 +6,7 @@ const REDIS_HOST = process.env.REDIS_HOST;
 const REDIS_PORT = process.env.REDIS_PORT;
 const REDIS_DB_NUMBER = process.env.REDIS_DB_NUMBER;
 
-const uri = `redis://${REDIS_USERNAME}:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}/#${REDIS_DB_NUMBER}`;
+const uri = `redis://default:AzT3ZbcUcs9EsrWvjjkU3Cvz9eI7MPMN@redis-12858.c99.us-east-1-4.ec2.redns.redis-cloud.com:12858#13444576`;
 
 // REDIS CONNECTION
 const redisClient = createClient({
