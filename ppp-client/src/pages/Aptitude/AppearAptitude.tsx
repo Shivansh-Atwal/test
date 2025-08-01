@@ -322,9 +322,8 @@ const handleViolation = async (type: string,regNo:string) => {
         return newCount; // Return the new count even if auto-submit fails
       }
 
-      // Call submit handler with auto flag
-      handleSubmitQuestions(true, finalRegNo); // true = auto submission
-      navigate("/"); 
+             // Call submit handler with auto flag - don't navigate here, let handleSubmitQuestions handle it
+       handleSubmitQuestions(true, finalRegNo); // true = auto submission 
     }
 
     return newCount; // Always return the new count
@@ -512,26 +511,86 @@ const handleViolation = async (type: string,regNo:string) => {
       setTimeLeft(timeLeft);
 
       let warningShown = false;
+      let autoSubmitTriggered = false;
 
       const timer = setInterval(() => {
         setTimeLeft((prev) => {
           const newTime = Math.max(0, prev - 1000);
-          if (newTime <= 30000 && !warningShown) {
-            warningShown = true;
-            toast({
-              title: "Warning",
-              description: "Submit quiz now it might take some time to process",
-              variant: "destructive",
-              duration: 10000,
-            });
-          }
+          
+                     // Show warning when 30 seconds remaining
+           if (newTime <= 30000 && !warningShown) {
+             warningShown = true;
+             toast({
+               title: "Warning",
+               description: "Submit quiz now it might take some time to process",
+               variant: "destructive",
+               duration: 10000,
+             });
+           }
+           
+                       // Auto-submit 5 seconds before time runs out
+            if (newTime <= 5000 && newTime > 0 && !autoSubmitTriggered) {
+              autoSubmitTriggered = true;
+              toast({
+                title: "Final Warning!",
+                description: "Test ending in 5 seconds. Auto-submitting your answers...",
+                variant: "destructive",
+                duration: 5000,
+              });
+              
+              // Get registration number from session storage
+              const savedRegNo = sessionStorage.getItem(`aptitude-regno-${aptiId}`) || regNo;
+              if (!savedRegNo) {
+                console.error("No registration number available for auto-submit");
+                console.log("Debug info:", { savedRegNo, regNo, aptiId });
+                toast({
+                  title: "Error",
+                  description: "Unable to auto-submit: Registration number not found",
+                  variant: "destructive",
+                });
+                navigate("/");
+                return newTime;
+              }
+              
+              // Call submit handler with auto flag - don't navigate here, let handleSubmitQuestions handle it
+              handleSubmitQuestions(true, savedRegNo); // true = auto submission
+            }
+           
+                       // Auto-submit when time runs out (fallback)
+            if (newTime <= 0 && !autoSubmitTriggered) {
+              autoSubmitTriggered = true;
+              toast({
+                title: "Time's Up!",
+                description: "Test time has expired. Auto-submitting your answers...",
+                variant: "destructive",
+                duration: 5000,
+              });
+              
+              // Get registration number from session storage
+              const savedRegNo = sessionStorage.getItem(`aptitude-regno-${aptiId}`) || regNo;
+              if (!savedRegNo) {
+                console.error("No registration number available for auto-submit");
+                console.log("Debug info:", { savedRegNo, regNo, aptiId });
+                toast({
+                  title: "Error",
+                  description: "Unable to auto-submit: Registration number not found",
+                  variant: "destructive",
+                });
+                navigate("/");
+                return newTime;
+              }
+              
+              // Call submit handler with auto flag - don't navigate here, let handleSubmitQuestions handle it
+              handleSubmitQuestions(true, savedRegNo); // true = auto submission
+            }
+          
           return newTime;
         });
       }, 1000);
 
       return () => clearInterval(timer);
     }
-  }, [aptitude?.duration, aptitude?.test_timestamp]);
+  }, [aptitude?.duration, aptitude?.test_timestamp, aptiId, regNo]);
 
   useEffect(() => {
     if (questions.length > 0) {
@@ -616,25 +675,41 @@ const handleViolation = async (type: string,regNo:string) => {
   }, [questions, cheatingAttempts]);
 
   const handleAnswerChange = (questionId: number, selectedOption: number) => {
-    console.log('handleAnswerChange called:', { questionId, selectedOption });
+    // Convert 0-based frontend index to 1-based backend index
+    const backendOptionIndex = selectedOption + 1;
+    console.log('handleAnswerChange called:', { questionId, selectedOption, backendOptionIndex });
+    
+    // Find the current question to determine if it's single or multiple answer
+    const currentQuestion = questions.find(q => q.id === questionId);
+    const isSingleAnswer = currentQuestion?.correct_option?.length === 1;
+    
     setAnswers(prevAnswers => {
       const newAnswers = prevAnswers.map(answer => {
         if (answer.question_id === questionId) {
           const currentOptions = answer.selected_options || []; // Add fallback
-          const optionIndex = currentOptions.indexOf(selectedOption);
+          const optionIndex = currentOptions.indexOf(backendOptionIndex);
           
           if (optionIndex > -1) {
             // Remove option if already selected
             const updatedOptions = currentOptions.filter((_, index) => index !== optionIndex);
-            console.log('Removing option:', { questionId, selectedOption, updatedOptions });
+            console.log('Removing option:', { questionId, selectedOption, backendOptionIndex, updatedOptions });
             return { 
               ...answer, 
               selected_options: updatedOptions
             };
           } else {
-            // Add option if not selected
-            const updatedOptions = [...currentOptions, selectedOption];
-            console.log('Adding option:', { questionId, selectedOption, updatedOptions });
+            // For single answer questions, replace the current selection
+            // For multiple answer questions, add to the selection
+            let updatedOptions;
+            if (isSingleAnswer) {
+              // Single answer: replace current selection with new option
+              updatedOptions = [backendOptionIndex];
+              console.log('Single answer question - replacing selection:', { questionId, selectedOption, backendOptionIndex, updatedOptions });
+            } else {
+              // Multiple answer: add to current selection
+              updatedOptions = [...currentOptions, backendOptionIndex];
+              console.log('Multiple answer question - adding option:', { questionId, selectedOption, backendOptionIndex, updatedOptions });
+            }
             return { 
               ...answer, 
               selected_options: updatedOptions
@@ -711,14 +786,57 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
         throw new Error("Aptitude test ID not found");
       }
 
-      const submissionAnswers = answers && answers.length > 0 ? answers : [];
+             // Get answers from state or session storage
+       let submissionAnswers = answers && answers.length > 0 ? answers : [];
+       
+       // If no answers in state, try to get from session storage
+       if (submissionAnswers.length === 0 && aptitudeId) {
+         const savedAnswers = sessionStorage.getItem(`aptitude-answers-${aptitudeId}`);
+         if (savedAnswers) {
+           try {
+             const parsedAnswers = JSON.parse(savedAnswers);
+             if (Array.isArray(parsedAnswers) && parsedAnswers.length > 0) {
+               submissionAnswers = parsedAnswers;
+               console.log("Retrieved answers from session storage:", submissionAnswers);
+             }
+           } catch (error) {
+             console.error("Error parsing saved answers:", error);
+           }
+         }
+       }
+       
+       // Ensure we have valid answers for submission
+       if (submissionAnswers.length === 0) {
+         console.warn("No answers available for submission");
+         if (autoSubmit) {
+           console.log("Auto-submit with no answers - proceeding anyway");
+         } else {
+           toast({
+             title: "Error",
+             description: "No answers to submit",
+             variant: "destructive",
+           });
+           return;
+         }
+       }
 
-      console.log("Submitting with data:", {
-        regno: regNo,
-        trade,
-        aptitudeId: aptitudeId,
-        answers: submissionAnswers,
-        autoSubmit,
+             console.log("Submitting with data:", {
+         regno: regNo,
+         trade,
+         aptitudeId: aptitudeId,
+         answers: submissionAnswers,
+         autoSubmit,
+         answersCount: submissionAnswers.length,
+         hasAnswers: submissionAnswers.some(a => a.selected_options.length > 0),
+         stateAnswers: answers,
+         stateAnswersLength: answers?.length || 0
+       });
+
+      // Log current session storage before submission
+      console.log("Session storage before submission:", {
+        answers: sessionStorage.getItem(`aptitude-answers-${aptitudeId}`),
+        regno: sessionStorage.getItem(`aptitude-regno-${aptitudeId}`),
+        trade: sessionStorage.getItem(`aptitude-trade-${aptitudeId}`)
       });
 
       await aptitudeService.submitAptitude(
@@ -736,18 +854,23 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
         console.log("Auto-submit completed successfully");
       }
 
-      // Use aptitudeId for cleanup operations
-      if (aptitudeId) {
-        localStorage.setItem(`aptitude-${aptitudeId}-submitted`, "true");
-        localStorage.removeItem(`aptitude-${Number(aptitudeId) - 1}-submitted`);
-        sessionStorage.removeItem(`aptitude-answers-${aptitudeId}`);
-        sessionStorage.removeItem(`aptitude-start-${aptitudeId}`);
-        sessionStorage.removeItem(`aptitude-regno-${aptitudeId}`);
-        sessionStorage.removeItem(`aptitude-trade-${aptitudeId}`);
-        sessionStorage.removeItem(`aptitude-warnings-${aptitudeId}`);
-      }
+             // Only cleanup after successful submission
+       if (aptitudeId) {
+         localStorage.setItem(`aptitude-${aptitudeId}-submitted`, "true");
+         localStorage.removeItem(`aptitude-${Number(aptitudeId) - 1}-submitted`);
+         
+         // Add a longer delay before cleanup to ensure data is saved
+         setTimeout(() => {
+           sessionStorage.removeItem(`aptitude-answers-${aptitudeId}`);
+           sessionStorage.removeItem(`aptitude-start-${aptitudeId}`);
+           sessionStorage.removeItem(`aptitude-regno-${aptitudeId}`);
+           sessionStorage.removeItem(`aptitude-trade-${aptitudeId}`);
+           sessionStorage.removeItem(`aptitude-warnings-${aptitudeId}`);
+         }, 2000); // 2 second delay to ensure backend processing
+       }
 
-      navigate("/");
+       // Navigate after successful submission
+       navigate("/");
     } catch (error: any) {
       console.error("Submit error:", error);
 
@@ -808,10 +931,21 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
               
               
               
-              {/* Timer */}
-              <div className="bg-red-500 text-white text-xs sm:text-sm px-2 py-1 rounded-md shadow">
-                Time: {formatTime(timeLeft)}
-              </div>
+                             {/* Timer */}
+               <div className={`text-white text-xs sm:text-sm px-2 py-1 rounded-md shadow ${
+                 timeLeft <= 5000 ? 'bg-red-700 animate-pulse' : timeLeft <= 30000 ? 'bg-red-600 animate-pulse' : 'bg-red-500'
+               }`}>
+                 Time: {formatTime(timeLeft)}
+                 {timeLeft <= 5000 && timeLeft > 0 && (
+                   <span className="ml-1 text-xs">🚨 Auto-submitting now!</span>
+                 )}
+                 {timeLeft <= 30000 && timeLeft > 5000 && (
+                   <span className="ml-1 text-xs">⚠️ Auto-submit soon</span>
+                 )}
+                 {timeLeft <= 0 && (
+                   <span className="ml-1 text-xs">⏰ Submitting...</span>
+                 )}
+               </div>
             </div>
           </div>
         </div>
@@ -848,30 +982,45 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
                   </div>
                 </div>
 
-                {/* Options */}
+                                {/* Options */}
                 <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-gray-700 mb-4">
-                    Select all correct answers (you can choose multiple):
-                  </h3>
+                  {/* Determine if this is a single or multiple answer question */}
+                  {(() => {
+                    const isSingleAnswer = question.correct_option?.length === 1;
+                    return (
+                      <h3 className="text-sm font-medium text-gray-700 mb-4">
+                        {isSingleAnswer 
+                          ? "Select the correct answer (only one option allowed):"
+                          : "Select all correct answers (you can choose multiple):"
+                        }
+                      </h3>
+                    );
+                  })()}
                   {question.options.map((option, optIdx) => {
                     const savedAnswer = answers.find(
                       (a) => a.question_id === question.id
                     );
                     const selectedOptions = savedAnswer?.selected_options || []; // Add fallback
+                    // Convert 0-based frontend index to 1-based backend index for comparison
+                    const backendOptionIndex = optIdx + 1;
+                    const isSingleAnswer = question.correct_option?.length === 1;
+                    
                     return (
                       <label
                         key={optIdx}
                         className={`flex items-start space-x-3 p-4 rounded-lg border-2 cursor-pointer transition-all hover:bg-gray-50 ${
-                          selectedOptions.includes(optIdx)
+                          selectedOptions.includes(backendOptionIndex)
                             ? 'border-blue-500 bg-blue-50'
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
                         <input
-                          type="checkbox"
+                          type={isSingleAnswer ? "radio" : "checkbox"}
                           name={`q${question.id}`}
-                          className="mt-1 w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                          checked={selectedOptions.includes(optIdx)}
+                          className={`mt-1 w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 rounded ${
+                            isSingleAnswer ? 'rounded-full' : 'rounded'
+                          }`}
+                          checked={selectedOptions.includes(backendOptionIndex)}
                           onChange={() =>
                             handleAnswerChange(Number(question.id), optIdx)
                           }
@@ -888,61 +1037,63 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
           </div>
         </div>
 
-        {/* Navigation Footer */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t z-40">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex justify-between items-center">
-              <Button
-                onClick={() => setCurrentPage((prev) => prev - 1)}
-                disabled={currentPage === 0}
-                variant="outline"
-                className="px-6 py-2"
-              >
-                ← Previous
-              </Button>
-              
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600 hidden sm:block">
-                  {currentPage + 1} of {questions.length}
-                </span>
-                
-                {isLastPage ? (
-                  <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
-                    <DialogTrigger asChild>
-                      <Button disabled={loading} className="px-6 py-2 bg-green-600 hover:bg-green-700">
-                        Submit Test
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Confirm Submission</DialogTitle>
-                        <DialogDescription>
-                          Are you sure you want to submit your answers? This action cannot be undone.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="flex justify-end gap-4">
-                        <Button variant="outline" onClick={() => setShowSubmitDialog(false)}>
-                          Cancel
-                        </Button>
-                        <Button disabled={loading} onClick={() => handleSubmitQuestions(false, regNo)}>
-                          {loading ? "Submitting..." : "Confirm Submit"}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                ) : (
-                  <Button
-                    onClick={() => setCurrentPage((prev) => prev + 1)}
-                    disabled={currentPage >= questions.length - 1}
-                    className="px-6 py-2"
-                  >
-                    Next →
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+                 {/* Navigation Footer */}
+         <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t z-40">
+           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+             <div className="flex justify-between items-center">
+               <Button
+                 onClick={() => setCurrentPage((prev) => prev - 1)}
+                 disabled={currentPage === 0}
+                 variant="outline"
+                 className="px-6 py-2"
+               >
+                 ← Previous
+               </Button>
+               
+               <div className="flex items-center gap-4">
+                 <span className="text-sm text-gray-600 hidden sm:block">
+                   {currentPage + 1} of {questions.length}
+                 </span>
+                 
+                 {/* Submit Button - Always visible */}
+                 <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
+                   <DialogTrigger asChild>
+                     <Button disabled={loading} className="px-6 py-2 bg-green-600 hover:bg-green-700">
+                       Submit Test
+                     </Button>
+                   </DialogTrigger>
+                   <DialogContent>
+                     <DialogHeader>
+                       <DialogTitle>Confirm Submission</DialogTitle>
+                       <DialogDescription>
+                         Are you sure you want to submit your answers? This action cannot be undone.
+                       </DialogDescription>
+                     </DialogHeader>
+                     <div className="flex justify-end gap-4">
+                       <Button variant="outline" onClick={() => setShowSubmitDialog(false)}>
+                         Cancel
+                       </Button>
+                       <Button disabled={loading} onClick={() => handleSubmitQuestions(false, regNo)}>
+                         {loading ? "Submitting..." : "Confirm Submit"}
+                       </Button>
+                     </div>
+                   </DialogContent>
+                 </Dialog>
+                 
+                 {/* Next Button - Only show if not on last page */}
+                 {!isLastPage && (
+                   <Button
+                     onClick={() => setCurrentPage((prev) => prev + 1)}
+                     disabled={currentPage >= questions.length - 1}
+                     className="px-6 py-2"
+                   >
+                     Next →
+                   </Button>
+                 )}
+               </div>
+             </div>
+           </div>
+         </div>
 
         {/* Fullscreen Exit Overlay */}
         {isFullscreenExited && questions.length > 0 && (

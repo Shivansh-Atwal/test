@@ -51,6 +51,9 @@ const AddQuestionDialog: React.FC = () => {
     img: null,
   });
 
+  // Add state for question type (single vs multiple answer)
+  const [isMultipleAnswer, setIsMultipleAnswer] = useState(false);
+
   const [topics, setTopics] = useState<string[]>([]);
   const [topicInput, setTopicInput] = useState("");
   const [filteredTopics, setFilteredTopics] = useState<string[]>([]);
@@ -103,6 +106,16 @@ const AddQuestionDialog: React.FC = () => {
       return;
     }
 
+    // Additional validation for single answer questions
+    if (!isMultipleAnswer && newQuestion.correct_option.length > 1) {
+      toast({
+        title: "Error",
+        description: "Single answer questions can only have one correct answer",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -147,6 +160,7 @@ const AddQuestionDialog: React.FC = () => {
         img: null,
       });
       setSelectedTopics([]);
+      setIsMultipleAnswer(false);
       toast({
         title: "Success",
         description: "Question added successfully",
@@ -201,8 +215,15 @@ const AddQuestionDialog: React.FC = () => {
     let newCorrectOptions: number[];
     
     if (checked) {
-      newCorrectOptions = [...newQuestion.correct_option, optionNumber];
+      if (isMultipleAnswer) {
+        // For multiple answer questions, add to existing selections
+        newCorrectOptions = [...newQuestion.correct_option, optionNumber];
+      } else {
+        // For single answer questions, replace existing selection
+        newCorrectOptions = [optionNumber];
+      }
     } else {
+      // Remove the option from selections
       newCorrectOptions = newQuestion.correct_option.filter(opt => opt !== optionNumber);
     }
     
@@ -396,6 +417,55 @@ const AddQuestionDialog: React.FC = () => {
               </Select>
             </div>
 
+            <div className="grid gap-2">
+              <Label className="text-foreground">
+                Question Type
+              </Label>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    id="single-answer"
+                    name="answer-type"
+                    checked={!isMultipleAnswer}
+                    onChange={() => {
+                      setIsMultipleAnswer(false);
+                      // Clear multiple selections when switching to single answer
+                      if (newQuestion.correct_option.length > 1) {
+                        setNewQuestion({
+                          ...newQuestion,
+                          correct_option: newQuestion.correct_option.slice(0, 1)
+                        });
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <Label htmlFor="single-answer" className="text-sm">
+                    Single Answer
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    id="multiple-answer"
+                    name="answer-type"
+                    checked={isMultipleAnswer}
+                    onChange={() => setIsMultipleAnswer(true)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <Label htmlFor="multiple-answer" className="text-sm">
+                    Multiple Answers
+                  </Label>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500">
+                {isMultipleAnswer 
+                  ? "Users can select multiple correct answers"
+                  : "Users can only select one correct answer"
+                }
+              </p>
+            </div>
+
             {newQuestion.options.map((option, index) => (
               <div key={index} className="grid gap-2">
                 <div className="flex items-center gap-2">
@@ -403,13 +473,24 @@ const AddQuestionDialog: React.FC = () => {
                     Option {index + 1}
                   </Label>
                   <div className="flex items-center gap-2">
-                    <Checkbox
-                      id={`correct-${index}`}
-                      checked={newQuestion.correct_option.includes(index + 1)}
-                      onCheckedChange={(checked) => 
-                        handleCorrectOptionChange(index, checked as boolean)
-                      }
-                    />
+                    {isMultipleAnswer ? (
+                      <Checkbox
+                        id={`correct-${index}`}
+                        checked={newQuestion.correct_option.includes(index + 1)}
+                        onCheckedChange={(checked) => 
+                          handleCorrectOptionChange(index, checked as boolean)
+                        }
+                      />
+                    ) : (
+                      <input
+                        type="radio"
+                        id={`correct-${index}`}
+                        name="correct-option"
+                        checked={newQuestion.correct_option.includes(index + 1)}
+                        onChange={() => handleCorrectOptionChange(index, true)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                    )}
                     <Label htmlFor={`correct-${index}`} className="text-sm">
                       Correct
                     </Label>
@@ -455,6 +536,11 @@ const AddQuestionDialog: React.FC = () => {
                   ? newQuestion.correct_option.map(opt => `Option ${opt}`).join(", ")
                   : "None selected"
                 }
+                {!isMultipleAnswer && newQuestion.correct_option.length > 1 && (
+                  <span className="text-red-500 text-xs block">
+                    ⚠️ Single answer questions should have only one correct answer
+                  </span>
+                )}
               </Label>
             </div>
 
