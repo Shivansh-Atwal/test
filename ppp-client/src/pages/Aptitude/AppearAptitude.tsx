@@ -40,7 +40,7 @@ const AppearAptitude = () => {
   const [initialized, setInitialized] = useState(false);
   const [warnings, setWarnings] = useState(0);
   const [isFullscreenExited, setIsFullscreenExited] = useState(false);
-  const [isCameraOn,setIsCameraOn] = useState(false);
+  // const [isCameraOn,setIsCameraOn] = useState(false);
   const [isProcessingViolation, setIsProcessingViolation] = useState(false);
   
 
@@ -71,14 +71,14 @@ const AppearAptitude = () => {
       return;
     }
 
-    if (!isCameraOn) {
-      toast({
-        title: "Camera Required",
-        description: "Please allow camera access before starting the test.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // if (!isCameraOn) {
+    //   toast({
+    //     title: "Camera Required",
+    //     description: "Please allow camera access before starting the test.",
+    //     variant: "destructive",
+    //   });
+    //   return;
+    // }
 
     if (!regNoToUse || !tradeToUse) {
       toast({
@@ -92,12 +92,13 @@ const AppearAptitude = () => {
     setLoading(true);
 
     try {
-      const response: ApiResponse = await aptitudeService.getAptitudeForUser(
+      const res: ApiResponse = await aptitudeService.getAptitudeForUser(
         { regno: regNoToUse, trade: tradeToUse },
         aptiId
       );
+      let response = res;
+      response.data= JSON.parse(response.data);
 
-      console.log("Quiz response:", response.data);
       
              // Validate question data
        if (response.data.questions && Array.isArray(response.data.questions)) {
@@ -362,7 +363,7 @@ const handleViolation = async (type: string,regNo:string) => {
     console.log("Fullscreen state changed:", isFullscreen);
 
          if (!isFullscreen) {
-       // Only trigger violation if we're actually in a test (questions are loaded)
+       // Only trigger violation if actually in a test 
        if (questions && Array.isArray(questions) && questions.length > 0) {
          const currentRegNo = sessionStorage.getItem(`aptitude-regno-${aptiId}`) || regNo;
          console.log("Fullscreen exit detected, triggering violation");
@@ -1219,7 +1220,7 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
               Note: If we caught you cheating 5 times, the test will be automatically submitted!
             </p>
             
-            <div className="flex justify-center">
+            {/* <div className="flex justify-center">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -1247,7 +1248,7 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
               >
                 Allow Camera Access
               </Button>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
