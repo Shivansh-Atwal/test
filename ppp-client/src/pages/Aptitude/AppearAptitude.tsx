@@ -97,7 +97,10 @@ const AppearAptitude = () => {
         aptiId
       );
       let response = res;
-      response.data= JSON.parse(response.data);
+      
+      if (typeof response.data === 'string') {
+        response.data = JSON.parse(response.data);
+      }
 
       
              // Validate question data
