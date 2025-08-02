@@ -585,7 +585,7 @@ const handleViolation = async (type: string,regNo:string) => {
                 return newTime;
               }
               
-              // Call submit handler with auto flag - don't navigate here, let handleSubmitQuestions handle it
+              
               handleSubmitQuestions(true, savedRegNo); // true = auto submission
             }
           
@@ -599,34 +599,34 @@ const handleViolation = async (type: string,regNo:string) => {
 
   useEffect(() => {
     if (questions && Array.isArray(questions) && questions.length > 0) {
-      // Initialize answers when questions are loaded
+
       const savedAnswers = sessionStorage.getItem(`aptitude-answers-${aptitude?.id}`);
       let initialAnswers: Answer[];
 
       if (savedAnswers) {
         try {
           initialAnswers = JSON.parse(savedAnswers);
-          // Validate that all questions have corresponding answers
+          
           const allQuestionsHaveAnswers = questions.every(question =>
             initialAnswers.some(answer => answer.question_id === Number(question.id))
           );
           
           if (!allQuestionsHaveAnswers) {
-            // If some questions don't have answers, create complete initial state
+            
             initialAnswers = questions.map(question => ({
               question_id: Number(question.id),
               selected_options: [],
             }));
           }
         } catch (e) {
-          // If parsing fails, create new initial answers
+          
           initialAnswers = questions.map(question => ({
             question_id: Number(question.id),
             selected_options: [],
           }));
         }
       } else {
-        // If no saved answers, create new initial answers
+        
         initialAnswers = questions.map(question => ({
           question_id: Number(question.id),
           selected_options: [],
@@ -646,7 +646,7 @@ const handleViolation = async (type: string,regNo:string) => {
 
   useEffect(() => {
     // Only set up cheating detection when test is actually active (questions loaded and test started)
-    if (questions.length <= 0 || !aptitude?.id) return;
+    if (!questions || !Array.isArray(questions) || questions.length <= 0 || !aptitude?.id) return;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
@@ -934,7 +934,7 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
             <div className="flex items-center gap-4">
               <h1 className="text-lg sm:text-xl font-bold text-gray-800">{aptitude?.name}</h1>
               <span className="text-sm text-gray-600">
-                Question {currentPage + 1} of {questions.length}
+                Question {currentPage + 1} of {questions && Array.isArray(questions) ? questions.length : 0}
               </span>
             </div>
             
@@ -1076,7 +1076,7 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
                
                <div className="flex items-center gap-4">
                  <span className="text-sm text-gray-600 hidden sm:block">
-                   {currentPage + 1} of {questions.length}
+                   {currentPage + 1} of {questions && Array.isArray(questions) ? questions.length : 0}
                  </span>
                  
                  {/* Submit Button - Always visible */}
@@ -1108,7 +1108,7 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
                  {!isLastPage && (
                    <Button
                      onClick={() => setCurrentPage((prev) => prev + 1)}
-                     disabled={currentPage >= questions.length - 1}
+                     disabled={!questions || !Array.isArray(questions) || currentPage >= questions.length - 1}
                      className="px-6 py-2"
                    >
                      Next →
