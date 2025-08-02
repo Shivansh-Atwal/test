@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import aptitudeService from "@/api/services/aptitude.service";
 import { Button } from "@/shadcn/ui/button";
@@ -203,14 +203,7 @@ const AppearAptitude = () => {
     setInitialized(true);
   }, [aptitude?.id, initialized]);
 
-  useEffect(() => {
-    document.addEventListener("copy", (e: Event) => {
-      e.preventDefault();
-      navigator.clipboard.writeText(
-        "Cheating is not a good idea. Your quiz might get cancelled..."
-      );
-    });
-  }, []);
+  // Removed global copy listener - only test-specific listeners should be active
 
   useEffect(()=>{
     console.log(regNo ,"abcd");
@@ -368,18 +361,18 @@ const handleViolation = async (type: string,regNo:string) => {
 
     console.log("Fullscreen state changed:", isFullscreen);
 
-    if (!isFullscreen) {
-      // Only trigger violation if we're actually in a test (questions are loaded)
-      if (questions.length > 0) {
-        const currentRegNo = sessionStorage.getItem(`aptitude-regno-${aptiId}`) || regNo;
-        console.log("Fullscreen exit detected, triggering violation");
-        handleViolation("Exiting fullscreen", currentRegNo);
-        
-        // Immediately try to re-enter fullscreen
-        setTimeout(() => {
-          requestFullscreen();
-        }, 500);
-      }
+         if (!isFullscreen) {
+       // Only trigger violation if we're actually in a test (questions are loaded)
+       if (questions && Array.isArray(questions) && questions.length > 0) {
+         const currentRegNo = sessionStorage.getItem(`aptitude-regno-${aptiId}`) || regNo;
+         console.log("Fullscreen exit detected, triggering violation");
+         handleViolation("Exiting fullscreen", currentRegNo);
+         
+         // Immediately try to re-enter fullscreen
+         setTimeout(() => {
+           requestFullscreen();
+         }, 500);
+       }
       setIsFullscreenExited(true);
     } else {
       setIsFullscreenExited(false); // Hide blur overlay when back in fullscreen
@@ -437,7 +430,7 @@ const handleViolation = async (type: string,regNo:string) => {
 
   // Continuous fullscreen enforcement during test
   useEffect(() => {
-    if (questions.length === 0) return; // Only enforce during active test
+    if (!questions || !Array.isArray(questions) || questions.length === 0) return; // Only enforce during active test
 
     const enforceFullscreen = () => {
       const isFullscreen = !!(
@@ -463,7 +456,7 @@ const handleViolation = async (type: string,regNo:string) => {
 
   useEffect(() => {
     // Only set up event listeners when questions are loaded (test is active)
-    if (questions.length === 0) {
+    if (!questions || !Array.isArray(questions) || questions.length === 0) {
       return;
     }
 
@@ -605,7 +598,7 @@ const handleViolation = async (type: string,regNo:string) => {
   }, [aptitude?.duration, aptitude?.test_timestamp, aptiId, regNo]);
 
   useEffect(() => {
-    if (questions.length > 0) {
+    if (questions && Array.isArray(questions) && questions.length > 0) {
       // Initialize answers when questions are loaded
       const savedAnswers = sessionStorage.getItem(`aptitude-answers-${aptitude?.id}`);
       let initialAnswers: Answer[];
@@ -652,7 +645,8 @@ const handleViolation = async (type: string,regNo:string) => {
   }, [questions, aptitude?.id]);
 
   useEffect(() => {
-    if (questions.length <= 0) return;
+    // Only set up cheating detection when test is actually active (questions loaded and test started)
+    if (questions.length <= 0 || !aptitude?.id) return;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
@@ -684,7 +678,7 @@ const handleViolation = async (type: string,regNo:string) => {
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [questions, cheatingAttempts]);
+  }, [questions, cheatingAttempts, aptitude?.id]);
 
   const handleAnswerChange = (questionId: number, selectedOption: number) => {
     // Convert 0-based frontend index to 1-based backend index
@@ -693,7 +687,16 @@ const handleViolation = async (type: string,regNo:string) => {
     
     // Find the current question to determine if it's single or multiple answer
     const currentQuestion = questions.find(q => q.id === questionId);
-    const isSingleAnswer = currentQuestion?.correct_option && Array.isArray(currentQuestion.correct_option) && currentQuestion.correct_option.length === 1;
+    
+    // Add robust null/undefined checks
+    if (!currentQuestion) {
+      console.error('Question not found:', questionId);
+      return;
+    }
+    
+    const isSingleAnswer = currentQuestion?.correct_option && 
+                          Array.isArray(currentQuestion.correct_option) && 
+                          currentQuestion.correct_option.length === 1;
     
     setAnswers(prevAnswers => {
       const newAnswers = prevAnswers.map(answer => {
@@ -744,12 +747,17 @@ const handleViolation = async (type: string,regNo:string) => {
   };
 
   const getCurrentQuestions = () => {
+    if (!questions || !Array.isArray(questions)) {
+      return [];
+    }
     const start = currentPage * questionsPerPage;
     return questions.slice(start, start + questionsPerPage);
   };
 
   const isLastPage =
-    currentPage === Math.ceil(questions.length / questionsPerPage) - 1;
+    questions && Array.isArray(questions) ? 
+    currentPage === Math.ceil(questions.length / questionsPerPage) - 1 : 
+    true;
 
 const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
     console.log("handleSubmitQuestions called with autoSubmit:", autoSubmit);
@@ -915,7 +923,7 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
   };
 
 
-  if (questions.length > 0) {
+  if (questions && Array.isArray(questions) && questions.length > 0) {
     return (
       <div className="min-h-screen bg-gray-50">
         {/* <CameraCapture contestId={String(aptiId)} userId={regNo} /> */}
@@ -996,26 +1004,30 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
 
                                 {/* Options */}
                 <div className="space-y-3">
-                                     {/* Determine if this is a single or multiple answer question */}
-                   {(() => {
-                     const isSingleAnswer = question.correct_option && Array.isArray(question.correct_option) && question.correct_option.length === 1;
-                     return (
-                       <h3 className="text-sm font-medium text-gray-700 mb-4">
-                         {isSingleAnswer 
-                           ? "Select the correct answer (only one option allowed):"
-                           : "Select all correct answers (you can choose multiple):"
-                         }
-                       </h3>
-                     );
-                   })()}
-                                     {Array.isArray(question.options) && question.options.map((option, optIdx) => {
-                     const savedAnswer = answers.find(
-                       (a) => a.question_id === question.id
-                     );
-                     const selectedOptions = savedAnswer?.selected_options || []; // Add fallback
-                     // Convert 0-based frontend index to 1-based backend index for comparison
-                     const backendOptionIndex = optIdx + 1;
-                     const isSingleAnswer = question.correct_option && Array.isArray(question.correct_option) && question.correct_option.length === 1;
+                                                                           {/* Determine if this is a single or multiple answer question */}
+                    {(() => {
+                      const isSingleAnswer = question?.correct_option && 
+                                           Array.isArray(question.correct_option) && 
+                                           question.correct_option.length === 1;
+                      return (
+                        <h3 className="text-sm font-medium text-gray-700 mb-4">
+                          {isSingleAnswer 
+                            ? "Select the correct answer (only one option allowed):"
+                            : "Select all correct answers (you can choose multiple):"
+                          }
+                        </h3>
+                      );
+                    })()}
+                                      {question?.options && Array.isArray(question.options) && question.options.map((option, optIdx) => {
+                                           const savedAnswer = answers.find(
+                        (a) => a.question_id === question.id
+                      );
+                      const selectedOptions = savedAnswer?.selected_options || []; // Add fallback
+                      // Convert 0-based frontend index to 1-based backend index for comparison
+                      const backendOptionIndex = optIdx + 1;
+                      const isSingleAnswer = question?.correct_option && 
+                                           Array.isArray(question.correct_option) && 
+                                           question.correct_option.length === 1;
                      
                      return (
                        <label
@@ -1107,8 +1119,8 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
            </div>
          </div>
 
-        {/* Fullscreen Exit Overlay */}
-        {isFullscreenExited && questions.length > 0 && (
+                 {/* Fullscreen Exit Overlay */}
+         {isFullscreenExited && questions && Array.isArray(questions) && questions.length > 0 && (
           <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
             <div className="bg-white p-6 sm:p-8 rounded-lg shadow-xl text-center max-w-md mx-4">
               <h2 className="text-xl sm:text-2xl font-bold text-red-600 mb-4">
@@ -1244,4 +1256,59 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
 };
 
 export default AppearAptitude;
+
+// Error Boundary Component
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 max-w-md w-full">
+            <h1 className="text-2xl font-bold text-center mb-6 text-red-600">Something went wrong</h1>
+            <p className="text-gray-700 mb-4">
+              We encountered an error while loading the aptitude test. Please try refreshing the page.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+            >
+              Refresh Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Export with error boundary
+export const AppearAptitudeWithErrorBoundary = () => (
+  <ErrorBoundary>
+    <AppearAptitude />
+  </ErrorBoundary>
+);
 
