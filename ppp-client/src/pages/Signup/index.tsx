@@ -19,6 +19,7 @@ function Signup() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
+
   const navigate = useNavigate();
 
   const currentYear = new Date().getFullYear();

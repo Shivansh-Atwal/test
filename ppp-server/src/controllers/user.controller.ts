@@ -13,7 +13,7 @@ import uploadOnCloud from '../utils/uploadOnCloud';
 import { Client } from 'pg';
 
 interface Register {
-    name: string,
+    name: string,       
     regno: string,
     trade: string,
     batch: string,
@@ -25,7 +25,7 @@ class UserController {
 
         // return res.status(400).json(new ApiError('Registration is closed! Contact your SPR', 400));
 
-        if (!name || !regno || !trade || !batch || !password) {
+        if (!name ||  !regno || !trade || !batch || !password) {
             return res.status(400).json(new ApiError('All fields are required', 400));
         }
 
@@ -148,29 +148,93 @@ class UserController {
     });
 
     public generateOTP = asyncHandler(async (req: Request, res: Response) => {
-        const { regno } = req.params;
+    const { regno } = req.params;
 
-        const email: string = regno + "@sliet.ac.in";
+    // Validate regno parameter
+    if (!regno || regno.trim() === '') {
+        return res.status(400).json(new ApiError("Registration number is required", 400));
+    }
+
+    console.log("DEBUG: Generating OTP for regno:", regno);
+
+    try {
+        // NOTE: Your schema shows 'users' table doesn't have 'email' column
+        // You might need to use a different approach or add email column to schema
+        
+        // Option 1: If you have email column (you need to add it to schema first)
+        const emailResult = await dbPool.query(`SELECT email FROM users WHERE regno = $1`, [regno]);
+        
+        // Check if user exists
+        if (emailResult.rows.length === 0) {
+            console.error("generateOTP: User not found for regno:", regno);
+            return res.status(404).json(new ApiError("User not found", 404));
+        }
+
+        // Extract email from query result
+        const userEmail = emailResult.rows[0].email;
+        
+        // Check if user has email
+        if (!userEmail) {
+            console.error("generateOTP: No email found for user:", regno);
+            return res.status(400).json(new ApiError("Email not found for this user", 400));
+        }
+
+        console.log("DEBUG: Found email for user:", userEmail);
+
+        // Generate 6-digit OTP
         let otp = "";
         for (let i = 0; i < 6; i++) {
             otp += Math.floor(Math.random() * 10);
         }
 
-        try {
-            const setOTP = await redisClient.set(
-                `otp:${regno}`,
-                otp,
-                { EX: 300 });
+        console.log("DEBUG: Generated OTP:", otp);
 
-            if (!setOTP) return res.status(500).json(new ApiError("Unable to save OTP", 500));
-            const ms = await sendMail(email.trim(), "OTP for Password Change", otpFormat(otp));
-            if (!ms) return res.status(500).json(new ApiError("Unable to send OTP to mail", 500));
-            return res.status(200).json(new ApiResponse("OTP sent to you SLIET email", 200, []))
-        } catch (error) {
-            return res.status(500).json(new ApiError((error as Error).message, 500));
+        // Store OTP in Redis with 5-minute expiration
+        const setOTP = await redisClient.set(
+            `otp:${regno}`,
+            otp,
+            { EX: 300 }
+        );
+
+        if (!setOTP) {
+            console.error("generateOTP: Failed to store OTP in Redis for regno:", regno);
+            return res.status(500).json(new ApiError("Unable to save OTP", 500));
         }
 
-    });
+        console.log("DEBUG: OTP stored in Redis successfully");
+
+        // Send email with OTP
+        const emailSent = await sendMail(userEmail, "OTP for Password Change", otpFormat(otp));
+        
+        if (!emailSent) {
+            console.error("generateOTP: Failed to send email to:", userEmail);
+            // Clean up Redis entry if email fails
+            await redisClient.del(`otp:${regno}`);
+            return res.status(500).json(new ApiError("Unable to send OTP to email", 500));
+        }
+
+        console.log("DEBUG: OTP email sent successfully to:", userEmail);
+
+        return res.status(200).json(
+            new ApiResponse("OTP sent to your registered email", 200, { 
+                message: "Please check your email for the OTP",
+                expiresIn: "5 minutes"
+            })
+        );
+
+    } catch (error) {
+        console.error("Error in generateOTP:", error);
+        
+        // Clean up any Redis entries in case of error
+        try {
+            await redisClient.del(`otp:${regno}`);
+        } catch (redisError) {
+            console.error("Error cleaning up Redis:", redisError);
+        }
+        
+        return res.status(500).json(new ApiError((error as Error).message, 500));
+    }
+});
 
     public forgotPass = asyncHandler(async (req: Request, res: Response) => {
         const { regno, password, otp } = req.body;
@@ -215,101 +279,131 @@ class UserController {
     public getUserDashboard = asyncHandler(async (req: CustomRequest, res: Response) => {
         const userData = req.user;
         const client = await dbPool.connect();
-        if (!userData.regno) return res.status(401).json(new ApiError("Unauthorized Request", 401));
+        console.log("DEBUG: User data from request:", userData);
+        if (!userData.regno) {
+            client.release();
+            return res.status(401).json(new ApiError("Unauthorized Request", 401));
+        }
         try {
+            console.log("DEBUG: Fetching dashboard for regno:", userData.regno);
+
+            // Include email in the user details query
             const userDetailsResult = await client.query(
-                `SELECT regno,name,trade,batch,avatar FROM users WHERE regno = $1`,
+                `SELECT regno, name, email, trade, batch, avatar FROM users WHERE regno = $1`,
                 [userData.regno]
             );
-
-
+            console.log("DEBUG: User details result:", userDetailsResult.rows);
             const userDetails = userDetailsResult?.rows[0];
             if (!userDetails) {
                 return res.status(404).json(new ApiError('User not found', 404));
             }
-            // Fetch test stats
+
+            // 2. Test Stats
             const testStatsResult = await client.query(
                 `SELECT 
-                COUNT(ur.id) AS total_tests_taken, -- Total tests taken by the user
-                ROUND(AVG((ur.marks::DECIMAL / NULLIF(at.total_questions, 0)) * 100), 2) AS average_score -- Average score in percentage
+                    COUNT(ur.id) AS total_tests_taken,
+                    ROUND(AVG((ur.marks::DECIMAL / NULLIF(at.total_questions, 0)) * 100), 2) AS average_score
                 FROM user_responses ur
                 JOIN aptitude_tests at ON ur.aptitude_test_id = at.id
-                WHERE ur.regno = $1`, [userData.regno]
-            );
-            const testStats = testStatsResult?.rows[0];
-
-            const lastTestResult = await client.query(
-                `SELECT 			
-                at.id AS test_id,
-                at.name AS test_name, 
-				at.test_timestamp,
-				at.duration,
-                at.total_questions AS total_score,
-                ur.marks AS score
-                FROM user_responses ur
-                JOIN aptitude_tests at ON ur.aptitude_test_id = at.id
-                WHERE ur.regno = $1
-                ORDER BY ur.id DESC
-                LIMIT 1`, [userData.regno]
-            );
-
-            const lastTest = lastTestResult?.rows[0];
-
-            const recentTestsResult = await client.query(`
-                SELECT 
-                at.name AS test_name, 
-                at.test_timestamp, 
-                ur.marks AS score,
-                at.total_questions AS total_score
-                FROM user_responses ur
-                JOIN aptitude_tests at ON ur.aptitude_test_id = at.id
-                WHERE ur.regno = $1
-                ORDER BY ur.id DESC
-                LIMIT 5 
-                `, [userData.regno]);
-
-            const recentTests = recentTestsResult?.rows;
-
-            const topicAnalysisResult = await client.query(
-                `SELECT 
-                    unnest(q.topic_tags) AS topic, -- Break down by individual topic
-                    COUNT(q.id) AS total_questions, -- Total questions available for the topic
-                    COUNT(parsed_data.question_id) AS total_solved, -- Total questions solved by the user
-                    SUM(CASE WHEN 
-                        (answers_array->>'selected_options' IS NOT NULL AND 
-                         (answers_array->'selected_options')::int[] && q.correct_option) OR
-                        (answers_array->>'selected_option' IS NOT NULL AND 
-                         CAST(answers_array->>'selected_option' AS INT) = ANY(q.correct_option))
-                    THEN 1 ELSE 0 END) AS correct_answers, -- Correct answers
-                    COUNT(parsed_data.question_id) - 
-                    SUM(CASE WHEN 
-                        (answers_array->>'selected_options' IS NOT NULL AND 
-                         (answers_array->'selected_options')::int[] && q.correct_option) OR
-                        (answers_array->>'selected_option' IS NOT NULL AND 
-                         CAST(answers_array->>'selected_option' AS INT) = ANY(q.correct_option))
-                    THEN 1 ELSE 0 END) AS incorrect_answers, -- Incorrect answers
-                    ROUND(
-                        SUM(CASE WHEN 
-                            (answers_array->>'selected_options' IS NOT NULL AND 
-                             (answers_array->'selected_options')::int[] && q.correct_option) OR
-                            (answers_array->>'selected_option' IS NOT NULL AND 
-                             CAST(answers_array->>'selected_option' AS INT) = ANY(q.correct_option))
-                        THEN 1 ELSE 0 END)::DECIMAL * 100 / NULLIF(COUNT(parsed_data.question_id), 0),
-                        2
-                    ) AS accuracy -- Accuracy percentage
-                FROM user_responses ur
-                CROSS JOIN LATERAL jsonb_array_elements(ur.answers::jsonb) AS answers_array
-                CROSS JOIN LATERAL (
-                    SELECT 
-                        (answers_array->>'question_id')::INT AS question_id
-                ) AS parsed_data
-                JOIN questions q ON q.id = parsed_data.question_id
-                WHERE ur.regno = $1 -- Filter by user's registration number
-                GROUP BY unnest(q.topic_tags);`,
+                WHERE ur.regno = $1`,
                 [userData.regno]
             );
+            console.log("DEBUG: Test stats result:", testStatsResult.rows);
+            const testStats = testStatsResult?.rows[0];
 
-            const topicAnalysis = (await topicAnalysisResult).rows;
+            // 3. Last Test Details
+            const lastTestResult = await client.query(
+                `SELECT 
+                    at.id AS test_id,
+                    at.name AS test_name, 
+                    at.test_timestamp,
+                    at.duration,
+                    at.total_questions AS total_score,
+                    ur.marks AS score
+                FROM user_responses ur
+                JOIN aptitude_tests at ON ur.aptitude_test_id = at.id
+                WHERE ur.regno = $1
+                ORDER BY ur.id DESC
+                LIMIT 1`,
+                [userData.regno]
+            );
+            console.log("DEBUG: Last test result:", lastTestResult.rows);
+            const lastTest = lastTestResult?.rows[0];
+
+            // 4. Recent Tests (limit 5)
+            const recentTestsResult = await client.query(
+                `SELECT 
+                    at.name AS test_name, 
+                    at.test_timestamp, 
+                    ur.marks AS score,
+                    at.total_questions AS total_score
+                FROM user_responses ur
+                JOIN aptitude_tests at ON ur.aptitude_test_id = at.id
+                WHERE ur.regno = $1
+                ORDER BY ur.id DESC
+                LIMIT 5`, 
+                [userData.regno]
+            );
+            console.log("DEBUG: Recent tests result:", recentTestsResult.rows);
+            const recentTests = recentTestsResult?.rows;
+
+            // 5. Topic Analysis Query (updated)
+            const topicAnalysisQuery = `
+                WITH parsed_answers AS (
+                    SELECT 
+                        ur.regno,
+                        (answer_element->>'question_id')::int as question_id,
+                        -- Handle both single selected_option and multiple selected_options
+                        CASE 
+                            WHEN answer_element ? 'selected_option' THEN 
+                                ARRAY[(answer_element->>'selected_option')::int]
+                            WHEN answer_element ? 'selected_options' THEN
+                                ARRAY(SELECT jsonb_array_elements_text(answer_element->'selected_options')::int)
+                            ELSE ARRAY[]::int[]
+                        END as user_selections
+                    FROM user_responses ur
+                    CROSS JOIN LATERAL jsonb_array_elements(ur.answers::jsonb) as answer_element
+                    WHERE ur.regno = $1
+                )
+                SELECT 
+                    topic,
+                    COUNT(DISTINCT q.id) AS total_questions,
+                    COUNT(pa.question_id) AS total_solved,
+                    SUM(
+                        CASE 
+                            WHEN pa.user_selections @> ARRAY[q.correct_option]
+                            THEN 1 ELSE 0 
+                        END
+                    ) AS correct_answers,
+                    COUNT(pa.question_id) - SUM(
+                        CASE 
+                            WHEN pa.user_selections @> ARRAY[q.correct_option]
+                            THEN 1 ELSE 0 
+                        END
+                    ) AS incorrect_answers,
+                    CASE 
+                        WHEN COUNT(pa.question_id) > 0 THEN
+                            ROUND(
+                                SUM(
+                                    CASE 
+                                        WHEN pa.user_selections @> ARRAY[q.correct_option]
+                                        THEN 1 ELSE 0 
+                                    END
+                                )::DECIMAL * 100.0 / COUNT(pa.question_id),
+                                2
+                            )
+                        ELSE 0
+                    END AS accuracy
+                FROM parsed_answers pa
+                JOIN questions q ON q.id = pa.question_id
+                CROSS JOIN LATERAL unnest(q.topic_tags) AS topic
+                GROUP BY topic
+                ORDER BY topic;
+            `;
+
+            const topicAnalysisResult = await client.query(topicAnalysisQuery, [userData.regno]);
+            console.log("DEBUG: Topic analysis result:", topicAnalysisResult.rows);
+            const topicAnalysis = topicAnalysisResult?.rows;
 
             const response = {
                 userDetails,
@@ -317,10 +411,10 @@ class UserController {
                 lastTest,
                 recentTests,
                 topicAnalysis
-            }
+            };
             return res.status(200).json(new ApiResponse('User dashboard data', 200, response));
-
         } catch (err) {
+            console.error("Dashboard Error:", err);
             return res.status(500).json(new ApiError((err as Error).message, 500));
         } finally {
             client.release();
@@ -471,23 +565,49 @@ class UserController {
         }
     })
 
-    editProfile = asyncHandler(async (req: CustomRequest, res: Response) => {
-        const userData = req.user;  // Logged in user data
-
-        const { mobile } = req.body;
-
+    public editProfile = asyncHandler(async (req: CustomRequest, res: Response) => {
+        // Make sure req.user exists and has regno
+        if (!req.user || !req.user.regno) {
+            console.error("editProfile: Missing authentication data in req.user");
+            return res.status(401).json(new ApiError("Unauthorized Request", 401));
+        }
+        const userData = req.user;
+        const data =req.body;
+        console.log("DEBUG: Received editProfile payload:", { regno: userData.regno,data });
+        
+        // Basic validation
+        if (!data) {
+            console.error("editProfile: Missing mobile or email in payload");
+            return res.status(400).json(new ApiError("Mobile and email are required", 400));
+        }
+        
         try {
             const client = await dbPool.connect();
-            const { rows } = await client.query(
-                `UPDATE users SET mobile = $1 WHERE regno = $2 RETURNING regno, name, trade, batch, mobile`,
-                [mobile, userData.regno]
-            );
-            const data = rows[0];
-            return res.status(200).json(new ApiResponse('Profile updated successfully', 200, data));
-
-        } catch (error) {
-            return res.status(500).json(new ApiError("Internal Server Error", 500));
-        }
+            try {
+                const query = `
+                    UPDATE users 
+                    SET mobile = $1, email = $2 
+                    WHERE regno = $3 
+                    RETURNING regno, name, email, trade, batch, mobile
+                `;
+                const values = [data.mobile.mobile,data.mobile.email, userData.regno];
+                console.log("DEBUG: Running query", query, "with values", values);
+                
+                const { rows } = await client.query(query, values);
+                console.log("DEBUG: Updated user record:", rows);
+                
+                if (!rows.length) {
+                    console.error("editProfile: No user record updated for regno", userData.regno);
+                    return res.status(404).json(new ApiError("User not found", 404));
+                }
+                return res.status(200).json(new ApiResponse("Profile updated successfully", 200, rows[0]));
+            } finally {
+              client.release();
+            }
+          } catch (error) {
+            console.error("Error in editProfile:", error);
+            return res.status(500).json(new ApiError((error as Error).message, 500));
+          }
     });
 
     public updateWarnings = asyncHandler(async (req: CustomRequest, res: Response) => {
@@ -520,7 +640,6 @@ class UserController {
             client.release();
         }
     });
-
 }
 
 export default new UserController();

@@ -10,10 +10,27 @@ export const options = {
 };
 
 export default function () {
-  const res = http.get('npm ', {
-    trade: "GCS",
-    regno: "2331080",
+  // Option 1: If trade and regno are query parameters
+  // const res = http.get('https://your-website.com/api/endpoint?trade=GCS&regno=2331080');
+  
+  // // Option 2: If you need to send them as POST data
+  // // const res = http.post('https://your-website.com/api/endpoint', {
+  // //   trade: "GCS",
+  // //   regno: "2331080",
+  // // });
+  
+  const res = http.get('http://localhost:5173/aptitude/response/34', {
+    headers: {
+      'trade': 'GCS',
+      'regno': '2331080',
+    }
   });
-  check(res, { 'status is 200': (r) => r.status === 200 });
+
+  // Check response
+  check(res, { 
+    'status is 200': (r) => r.status === 200,
+    'response time < 500ms': (r) => r.timings.duration < 500,
+  });
+  
   sleep(1);
 }

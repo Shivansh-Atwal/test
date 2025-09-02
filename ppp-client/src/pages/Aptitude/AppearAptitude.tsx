@@ -106,14 +106,6 @@ const AppearAptitude = () => {
              // Validate question data
        if (response.data.questions && Array.isArray(response.data.questions)) {
          response.data.questions.forEach((question: any, index: number) => {
-           console.log(`Question ${index + 1}:`, {
-             id: question.id,
-             description: question.description,
-             options: question.options,
-             correct_option: question.correct_option,
-             hasCorrectOption: !!question.correct_option,
-             isArray: Array.isArray(question.correct_option)
-           });
            
            // Add fallback for missing correct_option
            if (!question.correct_option) {
@@ -182,14 +174,12 @@ const AppearAptitude = () => {
       try {
         const parsedWarnings = JSON.parse(savedWarnings);
         const warningCount = parsedWarnings.count || 0;
-        console.log("Restoring warnings from session storage:", warningCount);
         setWarnings(warningCount);
       } catch (error) {
         console.error("Error parsing saved warnings:", error);
         setWarnings(0);
       }
     } else {
-      console.log("No saved warnings found, starting with 0");
       setWarnings(0);
     }
   }, [aptiId]);
@@ -214,17 +204,9 @@ const AppearAptitude = () => {
     console.log(trade,"abcd");
   },[regNo,trade]);
 
-  // Debug useEffect to track registration number availability
-  useEffect(() => {
-    console.log("Debug - Current state:", {
-      regNo,
-      aptiId,
-      savedRegNo: sessionStorage.getItem(`aptitude-regno-${aptiId}`),
-      warnings
-    });
-  }, [regNo, aptiId, warnings]);
 
-  // Ensure warnings are properly initialized
+
+
   useEffect(() => {
     if (aptiId) {
       const savedWarnings = sessionStorage.getItem(`aptitude-warnings-${aptiId}`);
@@ -687,7 +669,7 @@ const handleViolation = async (type: string,regNo:string) => {
   const handleAnswerChange = (questionId: number, selectedOption: number) => {
     // Convert 0-based frontend index to 1-based backend index
     const backendOptionIndex = selectedOption + 1;
-    console.log('handleAnswerChange called:', { questionId, selectedOption, backendOptionIndex });
+   
     
     // Find the current question to determine if it's single or multiple answer
     const currentQuestion = questions.find(q => q.id === questionId);
@@ -711,7 +693,6 @@ const handleViolation = async (type: string,regNo:string) => {
           if (optionIndex > -1) {
             // Remove option if already selected
             const updatedOptions = currentOptions.filter((_, index) => index !== optionIndex);
-            console.log('Removing option:', { questionId, selectedOption, backendOptionIndex, updatedOptions });
             return { 
               ...answer, 
               selected_options: updatedOptions
@@ -723,11 +704,11 @@ const handleViolation = async (type: string,regNo:string) => {
             if (isSingleAnswer) {
               // Single answer: replace current selection with new option
               updatedOptions = [backendOptionIndex];
-              console.log('Single answer question - replacing selection:', { questionId, selectedOption, backendOptionIndex, updatedOptions });
+             
             } else {
               // Multiple answer: add to current selection
               updatedOptions = [...currentOptions, backendOptionIndex];
-              console.log('Multiple answer question - adding option:', { questionId, selectedOption, backendOptionIndex, updatedOptions });
+              
             }
             return { 
               ...answer, 
@@ -765,7 +746,6 @@ const handleViolation = async (type: string,regNo:string) => {
 
 const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
     console.log("handleSubmitQuestions called with autoSubmit:", autoSubmit);
-    console.log("Current answers:", answers);
     console.log("Registration number:", regNo);
 
     if (!autoSubmit && (!answers || answers.length === 0)) {
@@ -986,29 +966,26 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
                     <span className="text-sm text-gray-500">{formatTime(timeLeft)} remaining</span>
                   </div>
                   
-                  {/* Question Text */}
-                  <div className="mb-6">
+                  {/* Question Text or Image */}
+                  {question.format !== "img" ? (
                     <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
                       {question.description}
                     </h2>
-                    
-                    {/* Question Image if present */}
-                    {question.format === "img" && (
-                      <div className="mb-6">
-                        <img
-                          src={question.description}
-                          alt="Question"
-                          className="max-w-full h-auto rounded-lg shadow-md mx-auto"
-                          style={{ maxHeight: '400px' }}
-                        />
-                      </div>
-                    )}
-                  </div>
+                  ) : (
+                    <div className="mb-6">
+                      <img
+                        src={question.description}
+                        alt="Question"
+                        className="max-w-full h-auto rounded-lg shadow-md mx-auto"
+                        style={{ maxHeight: '400px' }}
+                      />
+                    </div>
+                  )}
                 </div>
 
                                 {/* Options */}
                 <div className="space-y-3">
-                                                                           {/* Determine if this is a single or multiple answer question */}
+                  {/* Determine if this is a single or multiple answer question */}
                     {(() => {
                       const isSingleAnswer = question?.correct_option && 
                                            Array.isArray(question.correct_option) && 

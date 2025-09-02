@@ -4,7 +4,9 @@ import { ThemeProvider } from "./theme/theme-provider";
 import { FullscreenProvider } from './contexts/FullScreenContext';
 
 function App() {
-  const router = createBrowserRouter(Routes);
+  const router = createBrowserRouter([
+    ...Routes,
+  ]);
 
   return (
     <FullscreenProvider>

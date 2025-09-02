@@ -59,9 +59,9 @@ function Home() {
                 Data structures and algorithms practice sheets for better
                 understanding
               </p>
-              <span className="my-3 lg:my-5 px-3 py-1 bg-[#65b0b9] text-white font-medium rounded-2xl float-right">
-                Coming soon
-              </span>
+              <Link className="float-right" to={"/dsa-sheets"}>
+                <Button  size="sm" className="px-4 my-3 lg:my-5 py-3 text-lg">Get Started</Button>
+              </Link>
             </CardContent>
           </Card>
 

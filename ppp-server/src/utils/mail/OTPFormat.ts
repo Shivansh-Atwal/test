@@ -125,7 +125,7 @@ const otpFormat = (otp: string) => {
               <a
                 href="mailto:pppsliet@gmail.com"
                 style="color: #499fb6; text-decoration: none;"
-                >pppsliet@gmail.com</a
+                >pppnoreply7876@gmail.com</a
               >
           </main>
     
@@ -147,14 +147,14 @@ const otpFormat = (otp: string) => {
                 color: #434343;
               "
             >
-              T7P SLIET
+              T&P SLIET
             </p>
             <p style="margin: 0; margin-top: 8px; color: #434343;">
               SLIET Longowal, Sangrur, Punjab.
             </p>
             
             <p style="margin: 0; margin-top: 16px; color: #434343;">
-              Copyright © 2024 T&P SLIET. All rights reserved.
+              Copyright © 2025 T&P SLIET. All rights reserved.
             </p>
           </footer>
         </div>

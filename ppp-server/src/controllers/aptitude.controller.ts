@@ -229,11 +229,10 @@ class AptitudeController {
         //     return res.status(403).json(new ApiError("You are not present at the test venue", 403));
         // }
 
-        const cache = await redisClient.get(`apti-${aptitudeId}:${userData.trade}`);
-        if (cache) {
-            console.log(cache);
-            return res.status(200).json(new ApiResponse("Aptitude fetched Successfully", 200, cache));
-        }
+        // const cache = await redisClient.get(`apti-${aptitudeId}:${userData.trade}`);
+        // if (cache) {
+        //     return res.status(200).json(new ApiResponse("Aptitude fetched Successfully", 200, cache));
+        // }
 
         const client = await dbPool.connect();
         try {
@@ -302,7 +301,7 @@ class AptitudeController {
                 questions: validatedQuestions
             }
 
-            await redisClient.set(`apti-${aptitudeId}:${userData.trade}`, JSON.stringify(response), { EX: 600 });
+            // await redisClient.set(`apti-${aptitudeId}:${userData.trade}`, JSON.stringify(response), { EX: 600 });
 
             return res.status(200).json(new ApiResponse('Aptitude test questions fetched successfully', 200, response));
         } catch (error) {

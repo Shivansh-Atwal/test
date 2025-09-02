@@ -11,31 +11,36 @@ import {
   SelectValue,
 } from "@/shadcn/ui/select";
 import { ApiResponse } from "@/types/Api";
+import { JSPR } from "@/types/JSPR";
 import { Phone } from "lucide-react";
+import { HARDCODED_JSPRS } from "@/data/jsprs";
 
 const JSPRS = () => {
   const { toast } = useToast();
   const batches = ["2022", "2023"];
   const [batch, setBatch] = useState(batches[0]);
-  const [jsprs, setJsprs] = useState<any[]>([]);
+  const [jsprs, setJsprs] = useState<JSPR[]>([]);
+
+  useEffect(() => {
+      const filteredJsprs = HARDCODED_JSPRS.filter((jspr) => jspr.batch === batch);
+      setJsprs(filteredJsprs);
+  }, [batch]);
 
   const getJsprs = async () => {
     try {
       const res: ApiResponse = await userService.getJsprs(batch);
       setJsprs(res.data);
-      console.log(res.data);
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Error",
         description: "An error occurred. Please try again.",
       });
+      
+      const filteredJsprs = HARDCODED_JSPRS.filter((jspr) => jspr.batch === batch);
+      setJsprs(filteredJsprs);
     }
   };
-
-  useEffect(() => {
-    getJsprs();
-  }, [batch]);
 
   const jsprsByTrade = TRADES.map((trade) => ({
     trade,
@@ -54,7 +59,7 @@ const JSPRS = () => {
         </p>
       </div>
 
-      <div className="mb-4">
+      <div className="flex gap-4 mb-4">
         <Select value={batch} onValueChange={setBatch}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Select batch" />
@@ -67,6 +72,8 @@ const JSPRS = () => {
             ))}
           </SelectContent>
         </Select>
+
+        
       </div>
 
       {jsprsByTrade.map(({ trade, students }) => (
@@ -96,11 +103,17 @@ const JSPRS = () => {
                   <p className="text-gray-500 mt-1 text-sm font-semibold -ml-3">
                     {" "}
                     {
-                      student.mobile!=null && 
-                      <Phone size={14} className="inline-block mr-1 rotate-12 mb-0.5" />
+                      student.mobile != null && (
+                        <Phone
+                          size={14}
+                          className="inline-block mr-1 rotate-12 mb-0.5"
+                        />
+                      )
                     }
 
-                    {student.mobile!=null &&  <a href={`tel: ${student.mobile}`}>{student.mobile}</a>  }
+                    {student.mobile != null && (
+                      <a href={`tel: ${student.mobile}`}>{student.mobile}</a>
+                    )}
                   </p>
                 </div>
               </div>
