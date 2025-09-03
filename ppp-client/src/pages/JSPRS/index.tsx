@@ -26,21 +26,21 @@ const JSPRS = () => {
       setJsprs(filteredJsprs);
   }, [batch]);
 
-  const getJsprs = async () => {
-    try {
-      const res: ApiResponse = await userService.getJsprs(batch);
-      setJsprs(res.data);
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "An error occurred. Please try again.",
-      });
+  // const getJsprs = async () => {
+  //   try {
+  //     const res: ApiResponse = await userService.getJsprs(batch);
+  //     setJsprs(res.data);
+  //   } catch (error) {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Error",
+  //       description: "An error occurred. Please try again.",
+  //     });
       
-      const filteredJsprs = HARDCODED_JSPRS.filter((jspr) => jspr.batch === batch);
-      setJsprs(filteredJsprs);
-    }
-  };
+  //     const filteredJsprs = HARDCODED_JSPRS.filter((jspr) => jspr.batch === batch);
+  //     setJsprs(filteredJsprs);
+  //   }
+  // };
 
   const jsprsByTrade = TRADES.map((trade) => ({
     trade,

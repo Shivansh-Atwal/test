@@ -29,7 +29,7 @@ import {
 } from "recharts";
 import { DashboardData } from "@/types/dashboard";
 import { rootState } from "@/redux/store";
-import { PenSquare, Upload } from "lucide-react";
+import { PenSquare , Upload} from "lucide-react";
 
 const UserDashboard = () => {
   const dispatch = useDispatch();
@@ -293,7 +293,7 @@ const handleProfileUpdate = async () => {
                       </AvatarFallback>
                     </Avatar>
                   </div>
-                  {/* <div className="relative">
+                  <div className="relative">
                     <Input
                       type="file"
                       accept="image/*"
@@ -311,7 +311,7 @@ const handleProfileUpdate = async () => {
                       <Upload className="w-4 h-4 mr-2" />
                       Choose New Picture
                     </Button>
-                  </div> */}
+                  </div>
                 </div>
 
                 {/* Profile Details Form */}
