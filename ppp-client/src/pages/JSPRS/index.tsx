@@ -1,6 +1,6 @@
 import { TRADES } from "@/constants";
-import userService from "@/api/services/user.service";
-import { useToast } from "@/hooks/use-toast";
+// import userService from "@/api/services/user.service";
+// import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/shadcn/ui/avatar";
 import {
@@ -10,13 +10,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shadcn/ui/select";
-import { ApiResponse } from "@/types/Api";
+// import { ApiResponse } from "@/types/Api";
 import { JSPR } from "@/types/JSPR";
 import { Phone } from "lucide-react";
 import { HARDCODED_JSPRS } from "@/data/jsprs";
 
 const JSPRS = () => {
-  const { toast } = useToast();
+  // const { toast } = useToast();
   const batches = ["2022", "2023"];
   const [batch, setBatch] = useState(batches[0]);
   const [jsprs, setJsprs] = useState<JSPR[]>([]);

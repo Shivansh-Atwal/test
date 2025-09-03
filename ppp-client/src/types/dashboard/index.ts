@@ -21,6 +21,8 @@ interface TopicAnalysis {
       avatar: string;
       trade: string | null;
       batch: string | null;
+      email?: string;  
+      mobile?: string; 
     };
     testStats: {
       total_tests_taken: string;

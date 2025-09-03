@@ -72,8 +72,10 @@ const UserDashboard = () => {
 
   useEffect(() => {
     if (dashboardData.userDetails) {
-      setMobile(dashboardData.userDetails.mobile || "");
-      setEmail(dashboardData.userDetails.email || "");
+      console.log("DEBUG: Setting mobile and email from dashboardData", dashboardData.userDetails);
+      setMobile((dashboardData.userDetails as any).mobile || "");
+      setEmail((dashboardData.userDetails as any).email || "");
+
     }
   }, [dashboardData.userDetails]);
 
@@ -98,11 +100,10 @@ const handleProfileUpdate = async () => {
     let hasProfileUpdated = false;
     let hasAvatarUpdated = false;
 
-    // Step 1: Update profile data (mobile & email)
     const payload = { mobile, email };
     console.log("DEBUG: Sending payload to editProfile", payload);
     
-    const profileResponse = await userService.editProfile(payload);
+    // const profileResponse = await userService.editProfile(payload);
     
     // Update local state with new mobile and email
     updatedUserDetails = {
@@ -134,7 +135,7 @@ const handleProfileUpdate = async () => {
         toast({
           title: "Partial Success",
           description: "Profile updated but avatar upload failed. Please try uploading the avatar again.",
-          variant: "warning", // or "destructive" based on your toast implementation
+          variant: "warn", // or "destructive" based on your toast implementation
         });
       }
     }
@@ -170,7 +171,7 @@ const handleProfileUpdate = async () => {
     // Keep mobile and email values as they are now the current values
     // Don't reset them to empty strings
 
-  } catch (error) {
+  } catch (error:any) {
     console.error("Error updating profile:", error);
     
     // More specific error handling
