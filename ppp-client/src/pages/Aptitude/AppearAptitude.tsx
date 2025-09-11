@@ -59,153 +59,145 @@ const AppearAptitude = () => {
   const navigate = useNavigate();
 
   const handleGetQuiz = async (savedRegNo?: string, savedTrade?: string) => {
-    const regNoToUse = savedRegNo || regNo;
-    const tradeToUse = savedTrade || trade;
+  const regNoToUse = savedRegNo || regNo;
+  const tradeToUse = savedTrade || trade;
 
-    if (localStorage.getItem(`aptitude-${aptiId}-submitted`)) {
-      toast({
-        title: "Error",
-        description: "You have already submitted your quiz",
-        variant: "destructive",
-      });
-      return;
-    }
+  // Prevent already submitted re-entry
+  if (localStorage.getItem(`aptitude-${aptiId}-submitted`)) {
+    toast({
+      title: "Error",
+      description: "You have already submitted your quiz",
+      variant: "destructive",
+    });
+    return;
+  }
 
-    // if (!isCameraOn) {
-    //   toast({
-    //     title: "Camera Required",
-    //     description: "Please allow camera access before starting the test.",
-    //     variant: "destructive",
-    //   });
-    //   return;
-    // }
+  if (!regNoToUse || !tradeToUse) {
+    toast({
+      title: "Error",
+      description: "Please fill all fields",
+      variant: "destructive",
+    });
+    return;
+  }
 
-    if (!regNoToUse || !tradeToUse) {
-      toast({
-        title: "Error",
-        description: "Please fill all fields",
-        variant: "destructive",
-      });
-      return;
-    }
+  setLoading(true);
 
-    setLoading(true);
+  try {
+    const res: ApiResponse = await aptitudeService.getAptitudeForUser(
+      { regno: regNoToUse, trade: tradeToUse },
+      aptiId
+    );
 
-    try {
-      const res: ApiResponse = await aptitudeService.getAptitudeForUser(
-        { regno: regNoToUse, trade: tradeToUse },
-        aptiId
-      );
-      let response = res;
-      
-      if (typeof response.data === 'string') {
-        response.data = JSON.parse(response.data);
-      }
+    let response = res;
 
-      
-             // Validate question data
-       if (response.data.questions && Array.isArray(response.data.questions)) {
-         response.data.questions.forEach((question: any, index: number) => {
-           
-           // Add fallback for missing correct_option
-           if (!question.correct_option) {
-             console.warn(`Question ${index + 1} has no correct_option, setting default`);
-             question.correct_option = [1]; // Default to first option
-           }
-           
-           // Ensure correct_option is always an array
-           if (!Array.isArray(question.correct_option)) {
-             console.warn(`Question ${index + 1} has non-array correct_option, converting to array`);
-             question.correct_option = [question.correct_option].filter(Boolean);
-           }
-           
-           // Ensure options is always an array
-           if (!Array.isArray(question.options)) {
-             console.warn(`Question ${index + 1} has non-array options, setting default`);
-             question.options = ["Option 1", "Option 2", "Option 3", "Option 4"];
-           }
-         });
-       }
-
-      setQuestions(response.data.questions);
-      setAptitude(response.data.aptitude);
-
-      // Save user data to session storage
-      sessionStorage.setItem(`aptitude-regno-${aptiId}`, regNoToUse);
-      sessionStorage.setItem(`aptitude-trade-${aptiId}`, tradeToUse);
-      sessionStorage.setItem(`aptitude-start-${aptiId}`, Date.now().toString());
-
-      // Request fullscreen after quiz loads
-      setTimeout(() => {
-        requestFullscreen();
-      }, 1000);
-
-      toast({
-        title: "Success",
-        description: "Quiz loaded successfully",
-      });
-    } catch (error: any) {
-      console.error("Error loading quiz:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to load quiz",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Load saved registration and trade data on mount
-  useEffect(() => {
-    const savedRegNo = sessionStorage.getItem(`aptitude-regno-${aptiId}`);
-    const savedTrade = sessionStorage.getItem(`aptitude-trade-${aptiId}`);
-    const savedWarnings = sessionStorage.getItem(`aptitude-warnings-${aptiId}`);
-    
-    if (savedRegNo && savedTrade) {
-      setRegNo(savedRegNo);
-      setTrade(savedTrade);
-      // Automatically fetch quiz if we have saved credentials
-      handleGetQuiz(savedRegNo, savedTrade);
-    }
-
-    // Restore warning count if exists
-    if (savedWarnings) {
+    // Safely parse string responses
+    if (typeof response.data === "string") {
       try {
-        const parsedWarnings = JSON.parse(savedWarnings);
-        const warningCount = parsedWarnings.count || 0;
-        setWarnings(warningCount);
-      } catch (error) {
-        console.error("Error parsing saved warnings:", error);
-        setWarnings(0);
+        response.data = JSON.parse(response.data);
+      } catch (err) {
+        console.error("Error parsing response data:", err);
+        toast({
+          title: "Error",
+          description: "Invalid quiz data received",
+          variant: "destructive",
+        });
+        return;
       }
-    } else {
+    }
+
+    // Validate question data
+    if (response.data.questions && Array.isArray(response.data.questions)) {
+      response.data.questions.forEach((question: any, index: number) => {
+        // Ensure correct_option is an array, but don't force [1] blindly
+        if (!question.correct_option) {
+          console.warn(`Question ${index + 1} has no correct_option, setting to []`);
+          question.correct_option = [];
+        }
+        if (!Array.isArray(question.correct_option)) {
+          console.warn(
+            `Question ${index + 1} has non-array correct_option, converting to array`
+          );
+          question.correct_option = [question.correct_option].filter(Boolean);
+        }
+
+        // Ensure options is always an array
+        if (!Array.isArray(question.options)) {
+          console.warn(`Question ${index + 1} has non-array options, setting default`);
+          question.options = ["Option 1", "Option 2", "Option 3", "Option 4"];
+        }
+      });
+    }
+
+    setQuestions(response.data.questions || []);
+    setAptitude(response.data.aptitude);
+
+    // Save user data to session storage
+    sessionStorage.setItem(`aptitude-regno-${aptiId}`, regNoToUse);
+    sessionStorage.setItem(`aptitude-trade-${aptiId}`, tradeToUse);
+    sessionStorage.setItem(`aptitude-start-${aptiId}`, Date.now().toString());
+
+    toast({
+      title: "Success",
+      description: "Quiz loaded successfully",
+    });
+  } catch (error: any) {
+    console.error("Error loading quiz:", error);
+    toast({
+      title: "Error",
+      description: error.message || "Failed to load quiz",
+      variant: "destructive",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
+// ---------------- USE EFFECTS ----------------
+
+useEffect(() => {
+  const savedRegNo = sessionStorage.getItem(`aptitude-regno-${aptiId}`);
+  const savedTrade = sessionStorage.getItem(`aptitude-trade-${aptiId}`);
+  const savedWarnings = sessionStorage.getItem(`aptitude-warnings-${aptiId}`);
+
+  if (savedRegNo && savedTrade) {
+    setRegNo(savedRegNo);
+    setTrade(savedTrade);
+    handleGetQuiz(savedRegNo, savedTrade); // Auto-fetch quiz if saved creds exist
+  }
+
+  // Restore warning count if exists
+  if (savedWarnings) {
+    try {
+      const parsedWarnings = JSON.parse(savedWarnings);
+      setWarnings(parsedWarnings.count || 0);
+    } catch (error) {
+      console.error("Error parsing saved warnings:", error);
       setWarnings(0);
     }
-  }, [aptiId]);
+  } else {
+    setWarnings(0);
+  }
+}, [aptiId]);
 
-  useEffect(() => {
-    if (!aptitude?.id || initialized) return;
+useEffect(() => {
+  if (!aptitude?.id || initialized) return;
 
-    const savedAnswers = sessionStorage.getItem(`aptitude-answers-${aptitude.id}`);
-    if (savedAnswers) {
+  const savedAnswers = sessionStorage.getItem(`aptitude-answers-${aptitude.id}`);
+  if (savedAnswers) {
+    try {
       const parsedAnswers = JSON.parse(savedAnswers);
       if (Array.isArray(parsedAnswers) && parsedAnswers.length > 0) {
         setAnswers(parsedAnswers);
       }
+    } catch (err) {
+      console.error("Error parsing saved answers:", err);
     }
-    setInitialized(true);
-  }, [aptitude?.id, initialized]);
+  }
+  setInitialized(true);
+}, [aptitude?.id, initialized]);
 
   // Removed global copy listener - only test-specific listeners should be active
-
-  useEffect(()=>{
-    console.log(regNo ,"abcd");
-    console.log(trade,"abcd");
-  },[regNo,trade]);
-
-
-
 
   useEffect(() => {
     if (aptiId) {
@@ -495,7 +487,7 @@ const handleViolation = async (type: string,regNo:string) => {
 
   useEffect(() => {
     if (aptitude?.duration) {
-      const durationMs = aptitude.duration * 60 * 1000;
+      const durationMs = (aptitude.duration * 60 * 1000) - (2 * 60 * 1000); //subtract 2 minutes for warnings
       const startTime = +aptitude.test_timestamp * 1000;
       const elapsedTime = Date.now() - startTime;
       const timeLeft = durationMs - elapsedTime;
@@ -508,23 +500,23 @@ const handleViolation = async (type: string,regNo:string) => {
         setTimeLeft((prev) => {
           const newTime = Math.max(0, prev - 1000);
           
-                     // Show warning when 30 seconds remaining
+          // Show warning when 2:30 minute remaining
            if (newTime <= 30000 && !warningShown) {
              warningShown = true;
              toast({
                title: "Warning",
-               description: "Submit quiz now it might take some time to process",
+               description: "30 seconds remaining, Auto-submit will be activated in 30 seconds.",
                variant: "destructive",
                duration: 10000,
              });
            }
            
-                       // Auto-submit 5 seconds before time runs out
-            if (newTime <= 5000 && newTime > 0 && !autoSubmitTriggered) {
+                       // Auto-submit 2 min before time runs out
+            if (newTime <= 10000 && newTime > 0 && !autoSubmitTriggered) {
               autoSubmitTriggered = true;
               toast({
                 title: "Final Warning!",
-                description: "Test ending in 5 seconds. Auto-submitting your answers...",
+                description: "Auto-submitting your answers...",
                 variant: "destructive",
                 duration: 5000,
               });
@@ -870,7 +862,7 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
            sessionStorage.removeItem(`aptitude-regno-${aptitudeId}`);
            sessionStorage.removeItem(`aptitude-trade-${aptitudeId}`);
            sessionStorage.removeItem(`aptitude-warnings-${aptitudeId}`);
-         }, 2000); // 2 second delay to ensure backend processing
+         }, 300000); // 300 second delay to ensure backend processing
        }
 
        // Navigate after successful submission
@@ -881,7 +873,7 @@ const handleSubmitQuestions = async (autoSubmit = false, regNo: string) => {
       if (autoSubmit) {
         toast({
           title: "Test Terminated",
-          description: "Test ended due to violations. Some data may not have been saved.",
+          description: "Test ended . Some data may not have been saved.",
           variant: "destructive",
         });
 

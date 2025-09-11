@@ -95,7 +95,7 @@ class AptitudeController {
         const aptitudeId = req.params.id;
         const questionIds: string[] = req.body.questionIds;
         const client = await dbPool.connect();
-        console.log(questionIds);
+        // console.log(questionIds);
         try {
             // Check if aptitude test exists
             const { rows: aptitudeRows } = await client.query(
