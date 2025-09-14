@@ -53,6 +53,20 @@ function Home() {
           <Card className="bg-white dark:bg-gray-800">
             <CardContent className="p-6">
               <div className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+                Placement Experience
+              </div>
+              <p className="text-gray-600 dark:text-gray-400">
+                Share and explore interview experiences...
+              </p>
+              <Link className="float-right" to={"/experience"}>
+                <Button  size="sm" className="px-4 my-3 lg:my-5 py-3 text-lg">Explore Now</Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white dark:bg-gray-800">
+            <CardContent className="p-6">
+              <div className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
                 DSA Sheets
               </div>
               <p className="text-gray-600 dark:text-gray-400">
@@ -60,7 +74,7 @@ function Home() {
                 understanding
               </p>
               <Link className="float-right" to={"/dsa-sheets"}>
-                <Button  size="sm" className="px-4 my-3 lg:my-5 py-3 text-lg">Get Started</Button>
+                <Button  size="sm" className="px-4 my-3 lg:my-5 py-3 text-lg">Coming Soon</Button>
               </Link>
             </CardContent>
           </Card>
