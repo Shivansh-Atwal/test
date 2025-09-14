@@ -24,7 +24,7 @@ const mockData: Year[] = [
         experiences: [
               {
                 id: "exp1",
-                studentName: "John Doe",
+                studentName: "Aryan Sahu",
                 studentRegNo: "2231081",
                 studentTrade: "GCS",
                 studentBatch: "2022",
