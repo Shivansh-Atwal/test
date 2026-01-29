@@ -8,3 +8,10 @@ export interface DSAContest {
   difficulty?: 'Easy' | 'Medium' | 'Hard';
   status: 'upcoming' | 'ongoing' | 'completed';
 }
+
+export interface DsaSheet {
+  id: string;
+  title: string;
+  description: string;
+  link: string;
+}

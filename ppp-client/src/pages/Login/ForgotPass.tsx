@@ -17,7 +17,6 @@ const ForgotPass = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [timer, setTimer] = useState(300); // 5 minutes in seconds
   const [passwordError, setPasswordError] = useState("");
-  const [extractedOtp, setExtractedOtp] = useState(""); // Store extracted OTP from email
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -85,7 +84,7 @@ const ForgotPass = () => {
 
     setIsLoading(true);
     try {
-      const response = await userService.sendOTP(email, regno);
+      await userService.sendOTP(email, regno);
       setOtpSent(true); 
       toast({
         title: "Success",

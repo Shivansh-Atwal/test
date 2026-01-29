@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import aptitudeService from "@/api/services/aptitude.service";
 import { Button } from "@/shadcn/ui/button";
-import { Input } from "@/shadcn/ui/input";
 import {
   Select,
   SelectContent,
@@ -967,7 +966,7 @@ const AppearAptitude = () => {
           <div className="flex-1 min-w-0">
             <div className="max-w-3xl mx-auto">
               {getCurrentQuestions().length > 0 ? (
-                getCurrentQuestions().map((question, idx) => (
+                getCurrentQuestions().map((question) => (
                   <div key={question.id} className="bg-white rounded-lg shadow-lg p-4 sm:p-8">
                     <div className="mb-6">
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">

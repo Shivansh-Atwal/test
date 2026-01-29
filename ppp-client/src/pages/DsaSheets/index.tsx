@@ -1,4 +1,4 @@
-import React, { useState, FormEvent } from "react";
+import { useState, FormEvent } from "react";
 import { Card, CardHeader, CardContent, CardFooter } from "@/shadcn/ui/card";
 import { Button } from "@/shadcn/ui/button";
 import { Input } from "@/shadcn/ui/input";
@@ -6,8 +6,6 @@ import { Label } from "@/shadcn/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/shadcn/ui/toast";
 import { User, Loader2, Trophy, Target, Clock, Edit, RefreshCw } from "lucide-react";
-import dsaService from "@/api/services/dsa.service";
-import { DsaSheet } from "@/types/Dsa";
 
 interface LeetCodeProfile {
   username: string;
