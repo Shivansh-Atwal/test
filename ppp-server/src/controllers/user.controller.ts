@@ -148,38 +148,37 @@ class UserController {
     });
 
     public generateOTP = asyncHandler(async (req: Request, res: Response) => {
-    const { regno } = req.params;
+    const { email, regno } = req.body;
 
-    // Validate regno parameter
+    // Validate required fields
+    if (!email || email.trim() === '') {
+        return res.status(400).json(new ApiError("Email address is required", 400));
+    }
+
     if (!regno || regno.trim() === '') {
         return res.status(400).json(new ApiError("Registration number is required", 400));
     }
 
-    console.log("DEBUG: Generating OTP for regno:", regno);
+    // Validate email ends with @sliet.ac.in
+    if (!email.toLowerCase().endsWith("@sliet.ac.in")) {
+        return res.status(400).json(new ApiError("Please use your SLIET email address (must end with @sliet.ac.in)", 400));
+    }
+
+    console.log("DEBUG: Generating OTP for email:", email, "and regno:", regno);
 
     try {
-        // NOTE: Your schema shows 'users' table doesn't have 'email' column
-        // You might need to use a different approach or add email column to schema
+        // Verify user exists with this registration number only (don't verify email match)
+        const userResult = await dbPool.query(
+            `SELECT regno FROM users WHERE regno = $1`,
+            [regno]
+        );
         
-        // Option 1: If you have email column (you need to add it to schema first)
-        const emailResult = await dbPool.query(`SELECT email FROM users WHERE regno = $1`, [regno]);
-        
-        // Check if user exists
-        if (emailResult.rows.length === 0) {
+        if (userResult.rows.length === 0) {
             console.error("generateOTP: User not found for regno:", regno);
-            return res.status(404).json(new ApiError("User not found", 404));
+            return res.status(404).json(new ApiError("No user account found with registration number " + regno, 404));
         }
 
-        // Extract email from query result
-        const userEmail = emailResult.rows[0].email;
-        
-        // Check if user has email
-        if (!userEmail) {
-            console.error("generateOTP: No email found for user:", regno);
-            return res.status(400).json(new ApiError("Email not found for this user", 400));
-        }
-
-        console.log("DEBUG: Found email for user:", userEmail);
+        console.log("DEBUG: Found user with regno:", regno);
 
         // Generate 6-digit OTP
         let otp = "";
@@ -189,34 +188,34 @@ class UserController {
 
         console.log("DEBUG: Generated OTP:", otp);
 
-        // Store OTP in Redis with 5-minute expiration
+        // Store OTP in Redis with 5-minute expiration, keyed by email
         const setOTP = await redisClient.set(
-            `otp:${regno}`,
+            `otp:${email}`,
             otp,
             { EX: 300 }
         );
 
         if (!setOTP) {
-            console.error("generateOTP: Failed to store OTP in Redis for regno:", regno);
+            console.error("generateOTP: Failed to store OTP in Redis for email:", email);
             return res.status(500).json(new ApiError("Unable to save OTP", 500));
         }
 
-        console.log("DEBUG: OTP stored in Redis successfully");
+        console.log("DEBUG: OTP stored in Redis successfully for email:", email);
 
         // Send email with OTP
-        const emailSent = await sendMail(userEmail, "OTP for Password Change", otpFormat(otp));
+        const emailSent = await sendMail(email, "OTP for Password Reset", otpFormat(otp));
         
         if (!emailSent) {
-            console.error("generateOTP: Failed to send email to:", userEmail);
+            console.error("generateOTP: Failed to send email to:", email);
             // Clean up Redis entry if email fails
-            await redisClient.del(`otp:${regno}`);
-            return res.status(500).json(new ApiError("Unable to send OTP to email", 500));
+            await redisClient.del(`otp:${email}`);
+            return res.status(500).json(new ApiError("Unable to send OTP to your email address", 500));
         }
 
-        console.log("DEBUG: OTP email sent successfully to:", userEmail);
+        console.log("DEBUG: OTP email sent successfully to:", email);
 
         return res.status(200).json(
-            new ApiResponse("OTP sent to your registered email", 200, { 
+            new ApiResponse("OTP sent to your email address", 200, { 
                 message: "Please check your email for the OTP",
                 expiresIn: "5 minutes"
             })
@@ -227,7 +226,7 @@ class UserController {
         
         // Clean up any Redis entries in case of error
         try {
-            await redisClient.del(`otp:${regno}`);
+            await redisClient.del(`otp:${email}`);
         } catch (redisError) {
             console.error("Error cleaning up Redis:", redisError);
         }
@@ -237,21 +236,55 @@ class UserController {
 });
 
     public forgotPass = asyncHandler(async (req: Request, res: Response) => {
-        const { regno, password, otp } = req.body;
+        const { email, regno, password, otp } = req.body;
+
+        // Validate required fields
+        if (!email || !password || !otp || !regno) {
+            return res.status(400).json(new ApiError("Email, registration number, password, and OTP are required", 400));
+        }
+
+        // Validate email ends with @sliet.ac.in
+        if (!email.toLowerCase().endsWith("@sliet.ac.in")) {
+            return res.status(400).json(new ApiError("Please use your SLIET email address (must end with @sliet.ac.in)", 400));
+        }
 
         try {
-            const dbOTP = await redisClient.get(`otp:${regno}`);
-            console.log(dbOTP, otp);
-            if (dbOTP != otp) return res.status(403).json(new ApiError("Invalid OTP", 403));
+            // Verify that the registration number exists (don't verify email match)
+            const userResult = await dbPool.query(
+                `SELECT regno FROM users WHERE regno = $1`,
+                [regno]
+            );
 
-            // Change password
+            if (userResult.rows.length === 0) {
+                return res.status(404).json(new ApiError("User not found with registration number " + regno, 404));
+            }
+
+            // Retrieve OTP from Redis using email as key
+            const dbOTP = await redisClient.get(`otp:${email}`);
+            
+            console.log("DEBUG: Verifying OTP for email:", email, "and regno:", regno);
+            console.log("DEBUG: Expected OTP:", dbOTP, "Provided OTP:", otp);
+
+            // Verify OTP matches
+            if (dbOTP !== otp) {
+                return res.status(403).json(new ApiError("Invalid or expired OTP. Please request a new OTP.", 403));
+            }
+
+            // Hash the new password
             const hashPass = await bcrypt.hash(password, 10);
 
-            const query = `UPDATE users SET password=$1 WHERE regno=$2`;
+            // Update password in database using registration number
+            const updateQuery = `UPDATE users SET password=$1 WHERE regno=$2`;
+            await dbPool.query(updateQuery, [hashPass, regno]);
 
-            const { rows } = await dbPool.query(query, [hashPass, regno]);
-            return res.status(200).json(new ApiResponse("Password Changed Successfully", 200, []));
+            // Clean up OTP from Redis after successful reset
+            await redisClient.del(`otp:${email}`);
+
+            console.log("DEBUG: Password reset successfully for regno:", regno);
+
+            return res.status(200).json(new ApiResponse("Password changed successfully. You can now login with your new password.", 200, {}));
         } catch (error) {
+            console.error("Error in forgotPass:", error);
             res.status(500).json(new ApiError((error as Error).message, 500));
         }
     });

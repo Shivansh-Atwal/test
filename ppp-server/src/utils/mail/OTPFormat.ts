@@ -154,7 +154,7 @@ const otpFormat = (otp: string) => {
             </p>
             
             <p style="margin: 0; margin-top: 16px; color: #434343;">
-              Copyright © 2025 T&P SLIET. All rights reserved.
+              Copyright © 2026 T&P SLIET. All rights reserved.
             </p>
           </footer>
         </div>
