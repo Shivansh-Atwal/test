@@ -337,7 +337,7 @@ function Dashboard() {
                       <TableCell>
                         {timestampToDate(test.test_timestamp)}
                       </TableCell>
-                      <TableCell>{test.duration}</TableCell>
+                      <TableCell>{test.duration-2}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button

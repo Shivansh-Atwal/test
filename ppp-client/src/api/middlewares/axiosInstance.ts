@@ -2,7 +2,7 @@ import axios from "axios";
 import { AuthState } from "@/types/User";
 import { getLocalAuth } from "@/helpers/local-auth";
 
-const baseUrl:string = window.location.origin.includes('localhost')? "http://localhost:3000":"https://api.pppsliet.me";
+const baseUrl:string = window.location.origin.includes('localhost')? "http://localhost:3000":"https://api.pppsliet.live";
 
 const axiosInstance = axios.create(
     { baseURL:baseUrl }

@@ -90,6 +90,90 @@ const AptitudeQuestions = () => {
     }
   };
 
+  // Separate questions into Aptitude (General) and Technical sections
+  const aptitudeQuestions = questions.filter((q) => 
+    q.question_type && q.question_type.toLowerCase() === "general"
+  );
+  const technicalQuestions = questions.filter((q) => 
+    q.question_type && q.question_type.toLowerCase() !== "general"
+  );
+
+  const renderQuestionsSection = (sectionQuestions: Question[], sectionTitle: string, startIndex: number) => {
+    return (
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold mb-6 pb-3 border-b-2 border-blue-500">
+          {sectionTitle} ({sectionQuestions.length} questions)
+        </h2>
+        <div className="space-y-8">
+          {sectionQuestions.map((question, index) => (
+            <div key={question.question_id} className="border rounded-lg px-3 lg:px-6 py-5 bg-white shadow-sm">
+              <div className="flex justify-between mb-4">
+                <h3 className="text-base  lg:text-lg font-semibold">Question {startIndex + index + 1}</h3>
+                <div className="flex items-center gap-4">
+                  <div className="flex gap-1 lg:gap-2 text-sm">
+                    <span className="text-xs lg:text-base h-fit px-2 py-1 bg-gray-100 rounded">
+                      Type: {question.question_type}
+                    </span>
+                    <span className="px-2 h-fit text-xs lg:text-base py-1 bg-gray-100 rounded">
+                      Difficulty: {question.difficulty_level}
+                    </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-red-500 hover:text-red-700"
+                    onClick={() => handleDeleteQuestion(question.question_id)}
+                    disabled={isDeleting === question.question_id}
+                  >
+                    {isDeleting === question.question_id ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-500 border-t-transparent" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                  </div>
+                </div>
+              </div>
+
+              <p className="mb-4">
+                {question.description.startsWith('https://') ? (
+                  <img src={question.description} alt="Question" className="max-w-full h-auto" />
+                ) : (
+                  question.description
+                )}
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                {question.options.map((option, optionIndex) => (
+                  <div
+                    key={optionIndex}
+                    className={`p-3 rounded-lg border ${
+                      question.correct_option.includes(optionIndex + 1)
+                        ? "bg-green-50 border-green-200"
+                        : "bg-gray-50"
+                    }`}
+                  >
+                    {option}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {question.topic_tags.map((tag, tagIndex) => (
+                  <span
+                    key={tagIndex}
+                    className="px-2 py-1 bg-blue-50 text-blue-600 text-sm rounded"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   useEffect(() => {
     fetchAptitudeDetails();
   }, []);
@@ -97,7 +181,7 @@ const AptitudeQuestions = () => {
   return (
     <div className="container mx-auto px-3">
       {aptitude && (
-        <div className="mb-6">
+        <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">{aptitude.name}</h1>
           <p className="text-gray-600">
             Duration: {aptitude.duration} minutes | 
@@ -107,71 +191,9 @@ const AptitudeQuestions = () => {
         </div>
       )}
 
-      <div className="space-y-8">
-        {questions.map((question, index) => (
-          <div key={question.question_id} className="border rounded-lg px-3 lg:px-6 py-5 bg-white shadow-sm">
-            <div className="flex justify-between mb-4">
-              <h3 className="text-base  lg:text-lg font-semibold">Question {index + 1}</h3>
-              <div className="flex items-center gap-4">
-                <div className="flex gap-1 lg:gap-2 text-sm">
-                  <span className="text-xs lg:text-base h-fit px-2 py-1 bg-gray-100 rounded">
-                    Type: {question.question_type}
-                  </span>
-                  <span className="px-2 h-fit text-xs lg:text-base py-1 bg-gray-100 rounded">
-                    Difficulty: {question.difficulty_level}
-                  </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-red-500 hover:text-red-700"
-                  onClick={() => handleDeleteQuestion(question.question_id)}
-                  disabled={isDeleting === question.question_id}
-                >
-                  {isDeleting === question.question_id ? (
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-500 border-t-transparent" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
-                  )}
-                </Button>
-                </div>
-              </div>
-            </div>
-
-            <p className="mb-4">
-              {question.description.startsWith('https://') ? (
-                <img src={question.description} alt="Question" className="max-w-full h-auto" />
-              ) : (
-                question.description
-              )}
-            </p>
-
-            <div className="grid grid-cols-2 gap-4">
-              {question.options.map((option, optionIndex) => (
-                <div
-                  key={optionIndex}
-                  className={`p-3 rounded-lg border ${
-                    question.correct_option.includes(optionIndex + 1)
-                      ? "bg-green-50 border-green-200"
-                      : "bg-gray-50"
-                  }`}
-                >
-                  {option}
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {question.topic_tags.map((tag, tagIndex) => (
-                <span
-                  key={tagIndex}
-                  className="px-2 py-1 bg-blue-50 text-blue-600 text-sm rounded"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
+      <div>
+        {aptitudeQuestions.length > 0 && renderQuestionsSection(aptitudeQuestions, "Aptitude Section", 0)}
+        {technicalQuestions.length > 0 && renderQuestionsSection(technicalQuestions, "Technical Section", aptitudeQuestions.length)}
       </div>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

@@ -20,11 +20,11 @@ class UserService {
         return axiosAuthInstance.get('/user/verify-session').then
             (res => res.data).catch(err => Promise.reject(err.response.data));
     }
-    sendOTP(regno: string) {
-        return axiosInstance.get('/user/generate-otp/' + regno).then(res => res.data).catch(err => Promise.reject(err));
+    sendOTP(email: string, regno: string) {
+        return axiosInstance.post('/user/generate-otp', { email, regno }).then(res => res.data).catch(err => Promise.reject(err.response?.data || err));
     }
-    resetPassword(regno: string, otp: string, password: string) {
-        return axiosInstance.post('/user/forgot-password', { regno, otp, password }).then(res => res.data).catch(err => Promise.reject(err));
+    resetPassword(email: string, regno: string, otp: string, password: string) {
+        return axiosInstance.post('/user/forgot-password', { email, regno, otp, password }).then(res => res.data).catch(err => Promise.reject(err.response?.data || err));
     }
     getUserDashBoard() {
         return axiosAuthInstance.get('/user/dashboard').then(res => res.data).catch(err => Promise.reject(err));

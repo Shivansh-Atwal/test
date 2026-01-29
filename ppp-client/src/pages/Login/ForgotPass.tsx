@@ -9,7 +9,7 @@ import userService from "@/api/services/user.service";
 import { useNavigate } from "react-router-dom";
 
 const ForgotPass = () => {
-  const [regno, setRegno] = useState("");
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -17,6 +17,7 @@ const ForgotPass = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [timer, setTimer] = useState(300); // 5 minutes in seconds
   const [passwordError, setPasswordError] = useState("");
+  const [extractedOtp, setExtractedOtp] = useState(""); // Store extracted OTP from email
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -45,19 +46,55 @@ const ForgotPass = () => {
     return true;
   };
 
+  const extractRegnoFromEmail = (emailAddress: string): string | null => {
+    // Extract the registration number from email (works with patterns like 2341045@sliet.ac.in or shivansh_2341045@sliet.ac.in)
+    const match = emailAddress.match(/(\d+)@/);
+    return match ? match[1] : null;
+  };
+
   const handleSendOTP = async () => {
+    if (!email.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter your email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate email ends with @sliet.ac.in
+    if (!email.toLowerCase().endsWith("@sliet.ac.in")) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid SLIET email address (must end with @sliet.ac.in)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Extract registration number from email
+    const regno = extractRegnoFromEmail(email);
+    if (!regno) {
+      toast({
+        title: "Error",
+        description: "Email must contain your registration number (e.g., 2341045@sliet.ac.in or shivansh_2341045@sliet.ac.in)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await userService.sendOTP(regno);
+      const response = await userService.sendOTP(email, regno);
       setOtpSent(true); 
       toast({
         title: "Success",
-        description: "OTP sent to your College Mail",
+        description: "OTP sent to your registered email address",
       });
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to send OTP",
+        description: (error as Error).message || "Failed to send OTP",
         variant: "destructive",
       });
     }
@@ -68,10 +105,32 @@ const ForgotPass = () => {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!otp.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter the OTP sent to your email",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!validatePassword()) return;
+    
+    // Extract registration number for reset
+    const regno = extractRegnoFromEmail(email);
+    if (!regno) {
+      toast({
+        title: "Error",
+        description: "Invalid email format",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await userService.resetPassword(regno, otp, newPassword);
+      await userService.resetPassword(email, regno, otp, newPassword);
       toast({
         title: "Success",
         description: "Password reset successfully",
@@ -80,7 +139,7 @@ const ForgotPass = () => {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to reset password",
+        description: (error as Error).message || "Failed to reset password",
         variant: "destructive",
       });
     } finally {
@@ -96,19 +155,19 @@ const ForgotPass = () => {
             Reset Password
           </h2>
           <p className="text-sm text-center text-gray-600 dark:text-gray-400">
-            Enter your Registration number to reset password
+            Enter your Registered Mail to reset password
           </p>
         </CardHeader>
         <form onSubmit={handleResetPassword}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="regno">Registration no</Label>
+              <Label htmlFor="email">Registered Email</Label>
               <Input
-                id="regno"
-                type="text"
-                placeholder="Enter regno eg. 2331080"
-                value={regno}
-                onChange={(e) => setRegno(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="Enter your registered email (e.g., 2341045@sliet.ac.in)"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 disabled={otpSent}
                 required
               />

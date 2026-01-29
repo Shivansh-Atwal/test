@@ -65,6 +65,13 @@ function Login() {
             batch: res.data.batch,
           },
         };
+        
+        
+        localStorage.setItem("userRegNo", res.data.regno);
+        localStorage.setItem("accessToken", res.data.access_token);
+        localStorage.setItem("userName", res.data.name);
+        localStorage.setItem("userTrade", res.data.trade);
+        
         setLocalAuth(authState);
         dispatch(setAuth(authState));
         navigate("/");

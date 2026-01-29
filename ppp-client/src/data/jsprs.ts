@@ -10,6 +10,14 @@ export const HARDCODED_JSPRS: JSPR[] = [
     "avatar": "https://res.cloudinary.com/dr8pw7qpc/image/upload/v1745175657/avatars/qvyrcysd3xwzhwxfjf5m.webp"
   },
   {
+    "name": "Arpan Kusum",
+    "regno": "2331003",
+    "trade": "GCS",
+    "mobile": "9472435023",
+    "batch": "2023",
+    "avatar": "https://res.cloudinary.com/dr8pw7qpc/image/upload/v1745175657/avatars/qvyrcysd3xwzhwxfjf5m.webp"
+  },
+  {
     "name": "Avinash Kumar",
     "regno": "2331080",
     "trade": "GCS",
