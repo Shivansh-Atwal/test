@@ -1,6 +1,6 @@
 import { Button } from "@/shadcn/ui/button";
 import { cn } from "@/lib/utils";
-import { Home, File, Pen } from "lucide-react";
+import { Home, File, Pen, Briefcase } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { rootState } from "@/redux/store";
@@ -59,6 +59,12 @@ const links = [
     href: "/sprs",
     icon: User,
     admin: true,
+  },
+  {
+    title: "Placement Experience",
+    href: "/experience",
+    icon: Briefcase,
+    admin: false,
   },
   // {
   //   title: "Change Password",

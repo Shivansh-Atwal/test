@@ -30,6 +30,7 @@ const GeolocationComponent = React.lazy(() => import('./components/GeoLocation')
 const BlockedUsers = React.lazy(() => import('./pages/admin/BlockedUsers'));
 const JSPRS = React.lazy(() => import('./pages/JSPRS'));
 const ChangePassword = React.lazy(() => import('./pages/ChangePassword/'));
+const Experience = React.lazy(() => import('./pages/Experience'));
 // const DsaSheet = React.lazy(() => import('./pages/DsaSheets'));
 
 const Routes = createRoutesFromElements(
@@ -55,6 +56,7 @@ const Routes = createRoutesFromElements(
     <Route path="/geo" element={<GeolocationComponent />} />
     <Route path="/sprs" element={<JSPRS />} />
     <Route path="/change-password" element={<ChangePassword />} />
+    <Route path="/experience" element={<Experience />} />
 
     {/* {404 Route} */}
     <Route path="*" element={<PageNotFound />} />
