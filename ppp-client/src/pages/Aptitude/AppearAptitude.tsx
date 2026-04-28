@@ -1124,6 +1124,18 @@ const AppearAptitude = () => {
                   Next →
                 </Button>
               )}
+
+              {isLastPage && activeSection === "general" && technicalQuestions.length > 0 && (
+                <Button
+                  onClick={() => {
+                    setActiveSection("technical");
+                    setCurrentPage(0);
+                  }}
+                  className="flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm h-9 bg-blue-600 hover:bg-blue-700"
+                >
+                  Next to Technical →
+                </Button>
+              )}
             </div>
           </div>
         </div>
